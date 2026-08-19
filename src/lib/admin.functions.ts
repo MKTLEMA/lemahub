@@ -1,9 +1,20 @@
 import { createServerFn } from "@tanstack/react-start";
 import { createClient } from "@supabase/supabase-js";
 
+function getEnv(name: string): string | undefined {
+  const viteVal = import.meta.env[name] as string | undefined;
+  if (viteVal) return viteVal;
+  if (typeof globalThis !== "undefined") {
+    const env = (globalThis as Record<string, unknown>)["__env__"] as
+      Record<string, string> | undefined;
+    if (env?.[name]) return env[name];
+  }
+  return undefined;
+}
+
 function getAdminClient() {
-  const url = import.meta.env["VITE_SUPABASE_URL"] as string;
-  const serviceKey = import.meta.env["SUPABASE_SERVICE_ROLE_KEY"] as string;
+  const url = getEnv("VITE_SUPABASE_URL");
+  const serviceKey = getEnv("SUPABASE_SERVICE_ROLE_KEY");
   if (!url || !serviceKey) {
     throw new Error("VITE_SUPABASE_URL e SUPABASE_SERVICE_ROLE_KEY devem estar configurados.");
   }
@@ -14,8 +25,8 @@ function getAdminClient() {
 
 async function requireAdmin(accessToken?: string) {
   if (!accessToken) throw new Error("Não autenticado.");
-  const url = import.meta.env["VITE_SUPABASE_URL"] as string;
-  const anonKey = import.meta.env["VITE_SUPABASE_ANON_KEY"] as string;
+  const url = getEnv("VITE_SUPABASE_URL");
+  const anonKey = getEnv("VITE_SUPABASE_ANON_KEY");
   if (!url || !anonKey) throw new Error("Variáveis de ambiente não configuradas.");
   const headers = { apikey: anonKey, Authorization: `Bearer ${accessToken}` };
 
@@ -23,7 +34,9 @@ async function requireAdmin(accessToken?: string) {
   if (!userRes.ok) throw new Error("Sessão inválida.");
   const user = await userRes.json();
 
-  const perfisRes = await fetch(`${url}/rest/v1/perfis?select=role&id=eq.${user.id}`, { headers });
+  const perfisRes = await fetch(`${url}/rest/v1/perfis?select=role&id=eq.${user.id}`, {
+    headers,
+  });
   const perfisData = await perfisRes.json();
   if (perfisData[0]?.role !== "admin") throw new Error("Acesso restrito a administradores.");
   return user;

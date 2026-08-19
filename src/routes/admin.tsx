@@ -99,8 +99,12 @@ function AdminPage() {
   async function criar(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     try {
+      const chars = "abcdefghjkmnpqrstuvwxyz23456789";
+      let rnd = "";
+      for (let i = 0; i < 8; i++) rnd += chars[Math.floor(Math.random() * chars.length)];
+      const tempPwd = `Lema${rnd}!`;
       const res = await createUser({
-        data: { accessToken: token, email, password: "Temp1234!" },
+        data: { accessToken: token, email, password: tempPwd },
       });
       await supabase.from("perfis").upsert({
         id: res.id,
@@ -108,7 +112,7 @@ function AdminPage() {
         nome: nome || email.split("@")[0],
         role,
       });
-      setSenhaGerada({ email, senha: "Temp1234!" });
+      setSenhaGerada({ email, senha: tempPwd });
       setEmail("");
       setNome("");
       toast.success("Conta criada.");
@@ -250,15 +254,21 @@ function AdminPage() {
                       size="sm"
                       variant="outline"
                       onClick={async () => {
-                        const nova = "Temp1234!";
+                        const chars = "abcdefghjkmnpqrstuvwxyz23456789";
+                        let rnd = "";
+                        for (let i = 0; i < 8; i++)
+                          rnd += chars[Math.floor(Math.random() * chars.length)];
+                        const nova = `Lema${rnd}!`;
                         try {
                           await resetPassword({
                             data: { accessToken: token, userId: p.id, password: nova },
                           });
                           setSenhaGerada({ email: p.email, senha: nova });
                           toast.success("Senha redefinida.");
-                        } catch {
-                          toast.error("Erro ao redefinir senha.");
+                        } catch (err: unknown) {
+                          const msg =
+                            err instanceof Error ? err.message : "Erro ao redefinir senha.";
+                          toast.error(msg);
                         }
                       }}
                     >
@@ -274,8 +284,9 @@ function AdminPage() {
                           await supabase.from("perfis").delete().eq("id", p.id);
                           toast.success("Conta removida.");
                           void carregar();
-                        } catch {
-                          toast.error("Erro ao remover conta.");
+                        } catch (err: unknown) {
+                          const msg = err instanceof Error ? err.message : "Erro ao remover conta.";
+                          toast.error(msg);
                         }
                       }}
                     >

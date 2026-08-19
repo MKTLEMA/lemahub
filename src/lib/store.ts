@@ -244,4 +244,16 @@ export async function deleteRow(tabela: TabelaNome, id: string) {
 // Auto-hydrate on import (client-side only)
 if (typeof window !== "undefined") {
   void hydrate();
+
+  supabase.auth.onAuthStateChange((event) => {
+    if (event === "SIGNED_IN") {
+      hydrated = false;
+      void hydrate();
+    } else if (event === "SIGNED_OUT") {
+      db = { ...EMPTY };
+      hydrated = false;
+      loading = true;
+      emit();
+    }
+  });
 }

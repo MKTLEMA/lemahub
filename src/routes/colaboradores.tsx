@@ -26,6 +26,7 @@ import { ProximityDot } from "@/components/proximity-dot";
 import { deleteRow, insertRow, updateRow, useDb } from "@/lib/store";
 import { diasAteAniversario } from "@/lib/alerts";
 import { exportCsv } from "@/lib/csv";
+import { ColorTag } from "@/components/color-tag";
 import type { Colaborador } from "@/lib/types";
 
 export const Route = createFileRoute("/colaboradores")({
@@ -92,6 +93,11 @@ function ColaboradoresPage() {
   const db = useDb();
   const [busca, setBusca] = useState("");
   const [mes, setMes] = useState("Todos");
+  const [mesAdm, setMesAdm] = useState("Todos");
+  const [fEmpresa, setFEmpresa] = useState("Todas");
+  const [fGenero, setFGenero] = useState("Todos");
+  const [fSetor, setFSetor] = useState("Todos");
+  const [fModal, setFModal] = useState("Todas");
   const [open, setOpen] = useState(false);
   const [editando, setEditando] = useState<Colaborador | null>(null);
   const [historicoId, setHistoricoId] = useState<string | null>(null);
@@ -101,16 +107,40 @@ function ColaboradoresPage() {
     return new Date(h.getFullYear(), h.getMonth(), 1);
   });
 
+  const empresas = useMemo(
+    () => [...new Set(db.colaboradores.map((c) => c.empresa_grupo).filter(Boolean))].sort(),
+    [db.colaboradores],
+  );
+  const generos = useMemo(
+    () => [...new Set(db.colaboradores.map((c) => c.genero).filter(Boolean))].sort(),
+    [db.colaboradores],
+  );
+  const setores = useMemo(
+    () => [...new Set(db.colaboradores.map((c) => c.setor).filter(Boolean))].sort(),
+    [db.colaboradores],
+  );
+  const modais = useMemo(
+    () => [...new Set(db.colaboradores.map((c) => c.formato_trabalho).filter(Boolean))].sort(),
+    [db.colaboradores],
+  );
+
   const rows = useMemo(() => {
     const q = busca.toLowerCase();
     return db.colaboradores
       .filter((c) => `${c.nome} ${c.setor} ${c.email} ${c.empresa_grupo}`.toLowerCase().includes(q))
-      .filter((c) => {
-        if (mes === "Todos") return true;
-        const idx = MESES.indexOf(mes) + 1;
-        return Number(c.data_aniversario?.slice(5, 7)) === idx;
-      });
-  }, [db.colaboradores, busca, mes]);
+      .filter(
+        (c) =>
+          mes === "Todos" || Number(c.data_aniversario?.slice(5, 7)) === MESES.indexOf(mes) + 1,
+      )
+      .filter(
+        (c) =>
+          mesAdm === "Todos" || Number(c.data_ingresso?.slice(5, 7)) === MESES.indexOf(mesAdm) + 1,
+      )
+      .filter((c) => fEmpresa === "Todas" || c.empresa_grupo === fEmpresa)
+      .filter((c) => fGenero === "Todos" || c.genero === fGenero)
+      .filter((c) => fSetor === "Todos" || c.setor === fSetor)
+      .filter((c) => fModal === "Todas" || c.formato_trabalho === fModal);
+  }, [db.colaboradores, busca, mes, mesAdm, fEmpresa, fGenero, fSetor, fModal]);
 
   return (
     <>
@@ -158,19 +188,86 @@ function ColaboradoresPage() {
           toast.success(`${total} colaborador(es) importado(s).`);
         }}
         extra={
-          <Select value={mes} onValueChange={setMes}>
-            <SelectTrigger className="w-40" aria-label="Filtrar por mês de aniversário">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="Todos">Todos os meses</SelectItem>
-              {MESES.map((m) => (
-                <SelectItem key={m} value={m}>
-                  {m}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <div className="flex flex-wrap gap-2">
+            <Select value={fEmpresa} onValueChange={setFEmpresa}>
+              <SelectTrigger className="w-32" aria-label="Empresa">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="Todas">Empresas</SelectItem>
+                {empresas.map((v) => (
+                  <SelectItem key={v} value={v}>
+                    {v}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select value={fSetor} onValueChange={setFSetor}>
+              <SelectTrigger className="w-32" aria-label="Setor">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="Todos">Setores</SelectItem>
+                {setores.map((v) => (
+                  <SelectItem key={v} value={v}>
+                    {v}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select value={fModal} onValueChange={setFModal}>
+              <SelectTrigger className="w-32" aria-label="Modalidade">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="Todas">Modalidade</SelectItem>
+                {modais.map((v) => (
+                  <SelectItem key={v} value={v}>
+                    {v}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select value={fGenero} onValueChange={setFGenero}>
+              <SelectTrigger className="w-32" aria-label="Gênero">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="Todos">Gênero</SelectItem>
+                {generos.map((v) => (
+                  <SelectItem key={v} value={v}>
+                    {v}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select value={mes} onValueChange={setMes}>
+              <SelectTrigger className="w-36" aria-label="Mês de aniversário">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="Todos">Aniversário</SelectItem>
+                {MESES.map((m) => (
+                  <SelectItem key={m} value={m}>
+                    {m}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select value={mesAdm} onValueChange={setMesAdm}>
+              <SelectTrigger className="w-36" aria-label="Mês de admissão">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="Todos">Admissão</SelectItem>
+                {MESES.map((m) => (
+                  <SelectItem key={m} value={m}>
+                    {m}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
         }
       />
 
@@ -198,9 +295,12 @@ function ColaboradoresPage() {
               <TableHeader>
                 <TableRow>
                   <TableHead>Nome</TableHead>
+                  <TableHead>Empresa</TableHead>
                   <TableHead>Setor</TableHead>
-                  <TableHead>Contratação</TableHead>
+                  <TableHead>Modalidade</TableHead>
+                  <TableHead>Gênero</TableHead>
                   <TableHead className="tabular-nums">Aniversário</TableHead>
+                  <TableHead className="tabular-nums">Admissão</TableHead>
                   <TableHead>Camisa</TableHead>
                   <TableHead className="w-12" />
                 </TableRow>
@@ -232,10 +332,23 @@ function ColaboradoresPage() {
                           <ProximityDot severidade={sev} label={c.nome} />
                         </span>
                       </TableCell>
-                      <TableCell>{c.setor}</TableCell>
-                      <TableCell className="capitalize">{c.formato_trabalho}</TableCell>
+                      <TableCell>
+                        <ColorTag value={c.empresa_grupo} />
+                      </TableCell>
+                      <TableCell>
+                        <ColorTag value={c.setor} />
+                      </TableCell>
+                      <TableCell>
+                        <ColorTag value={c.formato_trabalho} />
+                      </TableCell>
+                      <TableCell>
+                        <ColorTag value={c.genero} />
+                      </TableCell>
                       <TableCell className="tabular-nums">
-                        {c.data_aniversario.split("-").reverse().join("/")}
+                        {c.data_aniversario?.split("-").reverse().join("/") || "—"}
+                      </TableCell>
+                      <TableCell className="tabular-nums">
+                        {c.data_ingresso?.split("-").reverse().join("/") || "—"}
                       </TableCell>
                       <TableCell>{c.tamanho_farda || "—"}</TableCell>
 
@@ -257,7 +370,7 @@ function ColaboradoresPage() {
                 })}
                 {rows.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={6} className="py-10 text-center text-muted-foreground">
+                    <TableCell colSpan={9} className="py-10 text-center text-muted-foreground">
                       Nenhum colaborador encontrado.
                     </TableCell>
                   </TableRow>

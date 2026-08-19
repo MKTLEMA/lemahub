@@ -83,19 +83,37 @@ export async function login(
   });
   if (error) return { ok: false, erro: error.message };
   const user = data.user;
-  let { data: perfil } = await supabase
+  let { data: perfil, error: perfilErr } = await supabase
     .from("perfis")
     .select("nome, role")
     .eq("id", user.id)
     .maybeSingle();
+  if (perfilErr) {
+    console.error("Erro ao buscar perfil:", perfilErr.message);
+  }
+  if (!perfil && !perfilErr) {
+    const { error: insErr } = await supabase.from("perfis").upsert(
+      {
+        id: user.id,
+        email: user.email ?? email,
+        nome: email.split("@")[0],
+        role: "editor",
+      },
+      { onConflict: "id", ignoreDuplicates: true },
+    );
+    if (insErr) console.error("Erro ao criar perfil:", insErr.message);
+  }
   if (!perfil) {
-    await supabase.from("perfis").insert({
-      id: user.id,
-      email: user.email ?? email,
-      nome: email.split("@")[0],
-      role: "editor",
-    });
-    perfil = { nome: email.split("@")[0], role: "editor" };
+    const { data: retry } = await supabase
+      .from("perfis")
+      .select("nome, role")
+      .eq("id", user.id)
+      .maybeSingle();
+    if (retry) {
+      perfil = retry;
+    } else {
+      perfil = { nome: email.split("@")[0], role: "editor" };
+    }
   }
   const conta: Conta = {
     id: user.id,

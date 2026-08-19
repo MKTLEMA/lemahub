@@ -109,7 +109,10 @@ function EstoqueCoposPage() {
             {rows.map((r) => (
               <TableRow key={r.id} className="animate-rise">
                 <TableCell className="font-medium">
-                  <ProximityDot severidade={r.quantidade <= limite ? "alerta" : "ok"} label={r.tipo} />
+                  <ProximityDot
+                    severidade={r.quantidade <= limite ? "alerta" : "ok"}
+                    label={r.tipo}
+                  />
                 </TableCell>
                 <TableCell>{r.capacidade}</TableCell>
                 <TableCell>{r.cor}</TableCell>

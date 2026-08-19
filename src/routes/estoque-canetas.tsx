@@ -107,7 +107,10 @@ function EstoqueCanetasPage() {
             {rows.map((r) => (
               <TableRow key={r.id} className="animate-rise">
                 <TableCell className="font-medium">
-                  <ProximityDot severidade={r.quantidade <= limite ? "alerta" : "ok"} label={r.modelo} />
+                  <ProximityDot
+                    severidade={r.quantidade <= limite ? "alerta" : "ok"}
+                    label={r.modelo}
+                  />
                 </TableCell>
                 <TableCell>{r.cor}</TableCell>
                 <TableCell className="tabular-nums">{r.quantidade}</TableCell>

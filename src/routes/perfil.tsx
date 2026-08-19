@@ -12,7 +12,10 @@ export const Route = createFileRoute("/perfil")({
       { title: "Perfil — Hub LEMA" },
       { name: "description", content: "Dados da sua conta e troca de senha no Hub LEMA." },
       { property: "og:title", content: "Perfil — Hub LEMA" },
-      { property: "og:description", content: "Gerencie sua conta e senha no Hub de Demandas LEMA." },
+      {
+        property: "og:description",
+        content: "Gerencie sua conta e senha no Hub de Demandas LEMA.",
+      },
     ],
   }),
   component: PerfilPage,
@@ -20,13 +23,14 @@ export const Route = createFileRoute("/perfil")({
 
 function PerfilPage() {
   const [conta, setConta] = useState<auth.Conta | null>(null);
-  const [atual, setAtual] = useState("");
   const [nova, setNova] = useState("");
   const [confirma, setConfirma] = useState("");
 
   useEffect(() => {
-    setConta(auth.currentConta());
-    return auth.subscribeAuth(() => setConta(auth.currentConta()));
+    void auth.currentConta().then(setConta);
+    return auth.subscribeAuth(() => {
+      void auth.currentConta().then(setConta);
+    });
   }, []);
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
@@ -36,10 +40,9 @@ function PerfilPage() {
       toast.error("A confirmação não confere.");
       return;
     }
-    const res = await auth.alterarSenhaPropria(conta.email, atual, nova);
+    const res = await auth.alterarSenhaPropria(conta.email, "", nova);
     if (res.ok) {
       toast.success("Senha alterada.");
-      setAtual("");
       setNova("");
       setConfirma("");
     } else {
@@ -73,16 +76,6 @@ function PerfilPage() {
 
       <form onSubmit={onSubmit} className="space-y-4 rounded-xl border border-border bg-card p-5">
         <h2 className="font-display text-lg font-semibold">Alterar senha</h2>
-        <div className="space-y-1.5">
-          <Label htmlFor="atual">Senha atual</Label>
-          <Input
-            id="atual"
-            type="password"
-            required
-            value={atual}
-            onChange={(e) => setAtual(e.target.value)}
-          />
-        </div>
         <div className="space-y-1.5">
           <Label htmlFor="nova">Nova senha</Label>
           <Input

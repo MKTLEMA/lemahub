@@ -27,7 +27,9 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { supabase } from "@/lib/supabase";
 import * as auth from "@/lib/auth";
+import { listUsers, createUser, deleteUser, resetPassword } from "@/lib/admin.functions";
 
 export const Route = createFileRoute("/admin")({
   head: () => ({
@@ -35,30 +37,45 @@ export const Route = createFileRoute("/admin")({
       { title: "Administração — Hub LEMA" },
       { name: "description", content: "Gestão de contas e permissões do Hub de Demandas LEMA." },
       { property: "og:title", content: "Administração — Hub LEMA" },
-      { property: "og:description", content: "Crie contas, defina permissões e redefina senhas." },
+      {
+        property: "og:description",
+        content: "Crie contas, defina permissões e redefina senhas.",
+      },
     ],
   }),
   component: AdminPage,
 });
 
+type Perfil = {
+  id: string;
+  email: string;
+  nome: string;
+  role: auth.Role;
+};
+
 const ROLES: auth.Role[] = ["admin", "editor", "leitor"];
 
 function AdminPage() {
-  const [contas, setContas] = useState<auth.Conta[]>([]);
+  const [perfis, setPerfis] = useState<Perfil[]>([]);
   const [eu, setEu] = useState<auth.Conta | null>(null);
   const [email, setEmail] = useState("");
   const [nome, setNome] = useState("");
   const [role, setRole] = useState<auth.Role>("editor");
-  const [senhaGerada, setSenhaGerada] = useState<{ email: string; senha: string } | null>(null);
+  const [senhaGerada, setSenhaGerada] = useState<{
+    email: string;
+    senha: string;
+  } | null>(null);
+
+  async function carregar() {
+    const conta = await auth.currentConta();
+    setEu(conta);
+    const { data } = await supabase.from("perfis").select("id, email, nome, role").order("email");
+    setPerfis((data as Perfil[]) ?? []);
+  }
 
   useEffect(() => {
-    const sync = () => {
-      setContas(auth.listarContas());
-      setEu(auth.currentConta());
-    };
-    void auth.garantirSeed().then(sync);
-    sync();
-    return auth.subscribeAuth(sync);
+    void carregar();
+    return auth.subscribeAuth(() => void carregar());
   }, []);
 
   const souAdmin = eu?.role === "admin";
@@ -76,24 +93,32 @@ function AdminPage() {
 
   async function criar(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    const res = await auth.criarConta({ email, nome, role });
-    if (!res.ok) {
-      toast.error(res.erro);
-      return;
+    try {
+      const res = await createUser({
+        data: { email, password: "Temp1234!" },
+      });
+      await supabase.from("perfis").upsert({
+        id: res.id,
+        email,
+        nome: nome || email.split("@")[0],
+        role,
+      });
+      setSenhaGerada({ email, senha: "Temp1234!" });
+      setEmail("");
+      setNome("");
+      toast.success("Conta criada.");
+      void carregar();
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Erro ao criar conta";
+      toast.error(msg);
     }
-    setSenhaGerada({ email: email.trim().toLowerCase(), senha: res.senha });
-    setEmail("");
-    setNome("");
-    toast.success("Conta criada.");
   }
 
   return (
     <div className="animate-rise space-y-6">
       <header>
         <h1 className="font-display text-2xl font-bold tracking-tight">Administração</h1>
-        <p className="text-sm text-muted-foreground">
-          Contas de acesso ao hub. As senhas ficam apenas neste navegador (acesso mock).
-        </p>
+        <p className="text-sm text-muted-foreground">Contas de acesso ao hub via Supabase Auth.</p>
       </header>
 
       <form
@@ -138,9 +163,9 @@ function AdminPage() {
       <Dialog open={!!senhaGerada} onOpenChange={(o) => !o && setSenhaGerada(null)}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle className="font-display">Senha gerada</DialogTitle>
+            <DialogTitle className="font-display">Conta criada</DialogTitle>
             <DialogDescription>
-              Copie agora; não será mostrada novamente.
+              Senha temporária. O usuário deve redefinir no primeiro acesso.
             </DialogDescription>
           </DialogHeader>
           <p className="text-sm text-muted-foreground">{senhaGerada?.email}</p>
@@ -176,28 +201,30 @@ function AdminPage() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {contas.map((c) => (
-              <TableRow key={c.email}>
+            {perfis.map((p) => (
+              <TableRow key={p.id}>
                 <TableCell className="font-medium">
                   <Input
-                    defaultValue={c.nome}
-                    aria-label={`Nome de ${c.email}`}
-                    onBlur={(e) => {
-                      const nome = e.target.value.trim();
-                      if (nome && nome !== c.nome) {
-                        auth.atualizarConta(c.email, { nome });
+                    defaultValue={p.nome}
+                    aria-label={`Nome de ${p.email}`}
+                    onBlur={async (e) => {
+                      const novoNome = e.target.value.trim();
+                      if (novoNome && novoNome !== p.nome) {
+                        await supabase.from("perfis").update({ nome: novoNome }).eq("id", p.id);
                         toast.success("Nome atualizado.");
+                        void carregar();
                       }
                     }}
                   />
                 </TableCell>
-                <TableCell>{c.email}</TableCell>
+                <TableCell>{p.email}</TableCell>
                 <TableCell>
                   <Select
-                    value={c.role}
-                    onValueChange={(v) => {
-                      auth.atualizarConta(c.email, { role: v as auth.Role });
+                    value={p.role}
+                    onValueChange={async (v) => {
+                      await supabase.from("perfis").update({ role: v }).eq("id", p.id);
                       toast.success("Permissão atualizada.");
+                      void carregar();
                     }}
                   >
                     <SelectTrigger>
@@ -218,8 +245,16 @@ function AdminPage() {
                       size="sm"
                       variant="outline"
                       onClick={async () => {
-                        const senha = await auth.resetarSenha(c.email);
-                        setSenhaGerada({ email: c.email, senha });
+                        const nova = "Temp1234!";
+                        try {
+                          await resetPassword({
+                            data: { userId: p.id, password: nova },
+                          });
+                          setSenhaGerada({ email: p.email, senha: nova });
+                          toast.success("Senha redefinida.");
+                        } catch {
+                          toast.error("Erro ao redefinir senha.");
+                        }
                       }}
                     >
                       <KeyRound className="size-4" /> Senha
@@ -227,10 +262,16 @@ function AdminPage() {
                     <Button
                       size="sm"
                       variant="ghost"
-                      disabled={c.email === eu?.email}
-                      onClick={() => {
-                        auth.excluirConta(c.email);
-                        toast.success("Conta removida.");
+                      disabled={p.id === eu?.id}
+                      onClick={async () => {
+                        try {
+                          await deleteUser({ data: { userId: p.id } });
+                          await supabase.from("perfis").delete().eq("id", p.id);
+                          toast.success("Conta removida.");
+                          void carregar();
+                        } catch {
+                          toast.error("Erro ao remover conta.");
+                        }
                       }}
                     >
                       <Trash2 className="size-4" />
@@ -239,7 +280,7 @@ function AdminPage() {
                 </TableCell>
               </TableRow>
             ))}
-            {contas.length === 0 && (
+            {perfis.length === 0 && (
               <TableRow>
                 <TableCell colSpan={4} className="py-10 text-center text-muted-foreground">
                   Nenhuma conta cadastrada.

@@ -14,13 +14,20 @@ const ACAO_COLOR: Record<HistoricoEdicao["acao"], string> = {
 
 export function HistoricoLista({ itens }: { itens: HistoricoEdicao[] }) {
   if (itens.length === 0) {
-    return <p className="py-8 text-center text-sm text-muted-foreground">Nenhuma alteração registrada.</p>;
+    return (
+      <p className="py-8 text-center text-sm text-muted-foreground">
+        Nenhuma alteração registrada.
+      </p>
+    );
   }
 
   return (
     <ul className="divide-y divide-border">
       {itens.map((h) => (
-        <li key={h.id} className="animate-rise flex flex-wrap items-baseline gap-x-2 gap-y-1 py-3 text-sm">
+        <li
+          key={h.id}
+          className="animate-rise flex flex-wrap items-baseline gap-x-2 gap-y-1 py-3 text-sm"
+        >
           <span className={`font-medium ${ACAO_COLOR[h.acao]}`}>{ACAO_LABEL[h.acao]}</span>
           <span className="text-muted-foreground">em</span>
           <span className="font-medium">{LABELS[h.tabela]}</span>

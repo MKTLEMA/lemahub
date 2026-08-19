@@ -160,7 +160,10 @@ function CastanhasPage() {
               return (
                 <TableRow
                   key={k.id}
-                  className={cn("animate-rise", destaque === k.id && "bg-accent/10 ring-1 ring-accent")}
+                  className={cn(
+                    "animate-rise",
+                    destaque === k.id && "bg-accent/10 ring-1 ring-accent",
+                  )}
                 >
                   <TableCell className="font-medium">
                     <ProximityDot severidade={sev} label={k.fornecedor} />

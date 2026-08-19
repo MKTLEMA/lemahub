@@ -17,12 +17,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { ModuleHeader, RowActions } from "@/components/module-page";
-import {
-  EntityForm,
-  iniciais,
-  type FieldSpec,
-  type FormValues,
-} from "@/components/entity-form";
+import { EntityForm, iniciais, type FieldSpec, type FormValues } from "@/components/entity-form";
 import { HistoricoDialog } from "@/components/historico-dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { CalendarBoard } from "@/components/calendar-board";
@@ -37,7 +32,10 @@ export const Route = createFileRoute("/colaboradores")({
   head: () => ({
     meta: [
       { title: "Colaboradores — Hub LEMA" },
-      { name: "description", content: "Cadastro de colaboradores com aniversários e dados de farda." },
+      {
+        name: "description",
+        content: "Cadastro de colaboradores com aniversários e dados de farda.",
+      },
       { property: "og:title", content: "Colaboradores — Hub LEMA" },
       { property: "og:description", content: "Cadastro de colaboradores do grupo LEMA." },
     ],
@@ -75,7 +73,6 @@ const FIELDS: FieldSpec[] = [
   { name: "hobby", label: "Hobby", type: "text" },
 ];
 
-
 const MESES = [
   "Janeiro",
   "Fevereiro",
@@ -107,9 +104,7 @@ function ColaboradoresPage() {
   const rows = useMemo(() => {
     const q = busca.toLowerCase();
     return db.colaboradores
-      .filter((c) =>
-        `${c.nome} ${c.setor} ${c.email} ${c.empresa_grupo}`.toLowerCase().includes(q),
-      )
+      .filter((c) => `${c.nome} ${c.setor} ${c.email} ${c.empresa_grupo}`.toLowerCase().includes(q))
       .filter((c) => {
         if (mes === "Todos") return true;
         const idx = MESES.indexOf(mes) + 1;
@@ -142,8 +137,8 @@ function ColaboradoresPage() {
               empresa_grupo: linha["empresa_grupo"] ?? "",
               data_ingresso: linha["data_ingresso"] ?? "",
               data_aniversario: linha["data_aniversario"] ?? "",
-              formato_trabalho: (linha["formato_trabalho"] as Colaborador["formato_trabalho"]) ||
-                "hibrido",
+              formato_trabalho:
+                (linha["formato_trabalho"] as Colaborador["formato_trabalho"]) || "hibrido",
               genero: linha["genero"] ?? "",
               tamanho_farda: linha["tamanho_farda"] ?? "",
               tem_filhos: /^(true|sim|1)$/i.test(linha["tem_filhos"] ?? ""),
@@ -198,78 +193,78 @@ function ColaboradoresPage() {
         </TabsContent>
 
         <TabsContent value="lista">
-      <div className="overflow-x-auto rounded-xl border border-border bg-card">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Nome</TableHead>
-              <TableHead>Setor</TableHead>
-              <TableHead>Contratação</TableHead>
-              <TableHead className="tabular-nums">Aniversário</TableHead>
-              <TableHead>Camisa</TableHead>
-              <TableHead className="w-12" />
-            </TableRow>
-          </TableHeader>
-
-          <TableBody>
-            {rows.map((c) => {
-              const dias = diasAteAniversario(c.data_aniversario);
-              const sev = dias !== null && dias <= 3 ? "alerta" : "ok";
-              return (
-                <TableRow
-                  key={c.id}
-                  className="animate-rise cursor-pointer transition-colors hover:bg-accent/10"
-                  onClick={() => setDetalhe(c)}
-                >
-                  <TableCell className="font-medium">
-                    <span className="flex cursor-pointer items-center gap-3 transition-colors hover:text-accent hover:underline">
-                      {c.foto_url ? (
-                        <img
-                          src={c.foto_url}
-                          alt={`Foto de ${c.nome}`}
-                          className="size-9 rounded-full border border-border object-cover"
-                        />
-                      ) : (
-                        <span className="flex size-9 items-center justify-center rounded-full bg-muted text-xs font-semibold text-muted-foreground">
-                          {iniciais(c.nome)}
-                        </span>
-                      )}
-                      <ProximityDot severidade={sev} label={c.nome} />
-                    </span>
-                  </TableCell>
-                  <TableCell>{c.setor}</TableCell>
-                  <TableCell className="capitalize">{c.formato_trabalho}</TableCell>
-                  <TableCell className="tabular-nums">
-                    {c.data_aniversario.split("-").reverse().join("/")}
-                  </TableCell>
-                  <TableCell>{c.tamanho_farda || "—"}</TableCell>
-
-                  <TableCell onClick={(e) => e.stopPropagation()}>
-                    <RowActions
-                      onEditar={() => {
-                        setEditando(c);
-                        setOpen(true);
-                      }}
-                      onHistorico={() => setHistoricoId(c.id)}
-                      onExcluir={() => {
-                        deleteRow("colaboradores", c.id);
-                        toast.success("Colaborador excluído.");
-                      }}
-                    />
-                  </TableCell>
+          <div className="overflow-x-auto rounded-xl border border-border bg-card">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Nome</TableHead>
+                  <TableHead>Setor</TableHead>
+                  <TableHead>Contratação</TableHead>
+                  <TableHead className="tabular-nums">Aniversário</TableHead>
+                  <TableHead>Camisa</TableHead>
+                  <TableHead className="w-12" />
                 </TableRow>
-              );
-            })}
-            {rows.length === 0 && (
-              <TableRow>
-                <TableCell colSpan={6} className="py-10 text-center text-muted-foreground">
-                  Nenhum colaborador encontrado.
-                </TableCell>
-              </TableRow>
-            )}
-          </TableBody>
-        </Table>
-      </div>
+              </TableHeader>
+
+              <TableBody>
+                {rows.map((c) => {
+                  const dias = diasAteAniversario(c.data_aniversario);
+                  const sev = dias !== null && dias <= 3 ? "alerta" : "ok";
+                  return (
+                    <TableRow
+                      key={c.id}
+                      className="animate-rise cursor-pointer transition-colors hover:bg-accent/10"
+                      onClick={() => setDetalhe(c)}
+                    >
+                      <TableCell className="font-medium">
+                        <span className="flex cursor-pointer items-center gap-3 transition-colors hover:text-accent hover:underline">
+                          {c.foto_url ? (
+                            <img
+                              src={c.foto_url}
+                              alt={`Foto de ${c.nome}`}
+                              className="size-9 rounded-full border border-border object-cover"
+                            />
+                          ) : (
+                            <span className="flex size-9 items-center justify-center rounded-full bg-muted text-xs font-semibold text-muted-foreground">
+                              {iniciais(c.nome)}
+                            </span>
+                          )}
+                          <ProximityDot severidade={sev} label={c.nome} />
+                        </span>
+                      </TableCell>
+                      <TableCell>{c.setor}</TableCell>
+                      <TableCell className="capitalize">{c.formato_trabalho}</TableCell>
+                      <TableCell className="tabular-nums">
+                        {c.data_aniversario.split("-").reverse().join("/")}
+                      </TableCell>
+                      <TableCell>{c.tamanho_farda || "—"}</TableCell>
+
+                      <TableCell onClick={(e) => e.stopPropagation()}>
+                        <RowActions
+                          onEditar={() => {
+                            setEditando(c);
+                            setOpen(true);
+                          }}
+                          onHistorico={() => setHistoricoId(c.id)}
+                          onExcluir={() => {
+                            deleteRow("colaboradores", c.id);
+                            toast.success("Colaborador excluído.");
+                          }}
+                        />
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+                {rows.length === 0 && (
+                  <TableRow>
+                    <TableCell colSpan={6} className="py-10 text-center text-muted-foreground">
+                      Nenhum colaborador encontrado.
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+          </div>
         </TabsContent>
       </Tabs>
 

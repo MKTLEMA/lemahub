@@ -2,10 +2,10 @@ import { createServerFn } from "@tanstack/react-start";
 import { createClient } from "@supabase/supabase-js";
 
 function getAdminClient() {
-  const url = process.env.VITE_SUPABASE_URL;
-  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const url = import.meta.env["VITE_SUPABASE_URL"] as string;
+  const serviceKey = import.meta.env["SUPABASE_SERVICE_ROLE_KEY"] as string;
   if (!url || !serviceKey) {
-    throw new Error("VITE_SUPABASE_URL e SUPABASE_SERVICE_ROLE_KEY devem estar configurados no servidor.");
+    throw new Error("VITE_SUPABASE_URL e SUPABASE_SERVICE_ROLE_KEY devem estar configurados.");
   }
   return createClient(url, serviceKey, {
     auth: { autoRefreshToken: false, persistSession: false },

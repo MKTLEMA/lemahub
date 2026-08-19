@@ -53,18 +53,21 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   const [avisado, setAvisado] = useState(false);
   const [nome, setNome] = useState("");
+  const [authChecked, setAuthChecked] = useState(false);
 
-  // Proteção de rota client-side (auth mock em localStorage — ver src/lib/auth.ts).
   useEffect(() => {
     let ativo = true;
-    void auth.garantirSeed().then(() => {
+    void (async () => {
+      const email = await auth.currentEmail();
       if (!ativo) return;
-      if (!auth.currentEmail()) {
+      if (!email) {
         void router.navigate({ to: "/login", replace: true });
       } else {
-        setNome(auth.currentNome());
+        const n = await auth.currentNome();
+        if (ativo) setNome(n);
       }
-    });
+      if (ativo) setAuthChecked(true);
+    })();
     return () => {
       ativo = false;
     };
@@ -109,6 +112,14 @@ export function AppShell({ children }: { children: ReactNode }) {
     : alertas.length > 0
       ? "alerta"
       : "ok";
+
+  if (!authChecked) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background">
+        <div className="text-sm text-muted-foreground">Carregando...</div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex min-h-screen bg-background">
@@ -204,7 +215,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             type="button"
             title="Sair"
             onClick={async () => {
-              auth.logout();
+              await auth.logout();
               await router.invalidate();
               await router.navigate({ to: "/login", replace: true });
             }}

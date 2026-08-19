@@ -5,7 +5,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import * as auth from "@/lib/auth";
-import { setCurrentUser } from "@/lib/store";
 
 export const Route = createFileRoute("/login")({
   head: () => ({
@@ -33,8 +32,8 @@ function LoginPage() {
   const [carregando, setCarregando] = useState(false);
 
   useEffect(() => {
-    void auth.garantirSeed().then(() => {
-      if (auth.currentEmail()) void router.navigate({ to: "/", replace: true });
+    void auth.currentEmail().then((e) => {
+      if (e) void router.navigate({ to: "/", replace: true });
     });
   }, [router]);
 
@@ -45,7 +44,6 @@ function LoginPage() {
     try {
       const res = await auth.login(email, password);
       if (res.ok) {
-        setCurrentUser(res.conta.nome);
         await router.invalidate();
         await router.navigate({ to: "/", replace: true });
       } else {

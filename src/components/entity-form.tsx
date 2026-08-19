@@ -228,9 +228,10 @@ export function EntityForm({
                         size="sm"
                         onClick={() => {
                           const w = window.open();
-                          if (w) w.document.write(
-                            `<iframe src="${String(values[f.name])}" style="border:0;width:100%;height:100%"></iframe>`,
-                          );
+                          if (w)
+                            w.document.write(
+                              `<iframe src="${String(values[f.name])}" style="border:0;width:100%;height:100%"></iframe>`,
+                            );
                         }}
                       >
                         Ver arquivo

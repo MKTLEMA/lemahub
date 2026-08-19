@@ -26,7 +26,10 @@ export const Route = createFileRoute("/financeiro")({
       { title: "Compras Financeiro — Hub LEMA" },
       { name: "description", content: "Comprovantes de compra e envio de notas ao financeiro." },
       { property: "og:title", content: "Compras Financeiro — Hub LEMA" },
-      { property: "og:description", content: "Controle de comprovantes e notas do marketing LEMA." },
+      {
+        property: "og:description",
+        content: "Controle de comprovantes e notas do marketing LEMA.",
+      },
     ],
   }),
   component: FinanceiroPage,

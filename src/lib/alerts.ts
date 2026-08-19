@@ -210,4 +210,3 @@ export function calcularAlertas(db: DBShape): AlertaItem[] {
 
   return itens.sort((a, b) => a.ordem - b.ordem);
 }
-

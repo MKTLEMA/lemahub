@@ -39,6 +39,11 @@ CREATE TABLE IF NOT EXISTS compras_castanhas (
   valor NUMERIC(10,2) DEFAULT 0,
   fornecedor TEXT,
   prazo_entrega TEXT,
+  data_solicitacao TEXT,
+  observacao TEXT DEFAULT '',
+  numero_nf TEXT DEFAULT '',
+  vinculado_a TEXT,
+  anexo_url TEXT DEFAULT '',
   nota_fiscal_emitida BOOLEAN DEFAULT false,
   nota_enviada_financeiro BOOLEAN DEFAULT false,
   created_at TIMESTAMPTZ DEFAULT now(),
@@ -49,10 +54,12 @@ CREATE TABLE IF NOT EXISTS compras_financeiro (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   comprovante_url TEXT DEFAULT '',
   valor NUMERIC(10,2) DEFAULT 0,
-  comprador TEXT,
+  fornecedor TEXT DEFAULT '',
   solicitante TEXT,
   data_compra TEXT,
+  data_orcamento TEXT DEFAULT '',
   finalidade TEXT,
+  nota_fiscal_emitida BOOLEAN DEFAULT false,
   nota_enviada_financeiro BOOLEAN DEFAULT false,
   created_at TIMESTAMPTZ DEFAULT now(),
   updated_at TIMESTAMPTZ DEFAULT now()
@@ -83,7 +90,10 @@ CREATE TABLE IF NOT EXISTS estoque_fardamentos (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   peca TEXT,
   tamanho TEXT,
-  cor TEXT,
+  cor TEXT DEFAULT '',
+  estado TEXT DEFAULT '',
+  modelagem TEXT DEFAULT '',
+  empresa TEXT DEFAULT '',
   quantidade NUMERIC(10,2) DEFAULT 0,
   observacao TEXT,
   created_at TIMESTAMPTZ DEFAULT now(),
@@ -134,6 +144,16 @@ CREATE TABLE IF NOT EXISTS historico_edicoes (
   timestamp TIMESTAMPTZ DEFAULT now()
 );
 
+-- Tabela de perfis (papéis de acesso — ligada a auth.users)
+CREATE TABLE IF NOT EXISTS perfis (
+  id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
+  email TEXT NOT NULL,
+  nome TEXT NOT NULL DEFAULT '',
+  role TEXT NOT NULL DEFAULT 'editor' CHECK (role IN ('admin', 'editor', 'leitor')),
+  created_at TIMESTAMPTZ DEFAULT now(),
+  updated_at TIMESTAMPTZ DEFAULT now()
+);
+
 -- 2. RLS: Habilitar Row Level Security em todas as tabelas
 -- ============================================================
 
@@ -146,10 +166,9 @@ ALTER TABLE estoque_canetas ENABLE ROW LEVEL SECURITY;
 ALTER TABLE estoque_copos ENABLE ROW LEVEL SECURITY;
 ALTER TABLE gastos_endomarketing ENABLE ROW LEVEL SECURITY;
 ALTER TABLE historico_edicoes ENABLE ROW LEVEL SECURITY;
+ALTER TABLE perfis ENABLE ROW LEVEL SECURITY;
 
--- Policies: todos autenticados têm CRUD completo
--- (TO authenticated em vez de auth.role() —后者 está deprecated)
-
+-- Policies: todos autenticados têm CRUD completo nas tabelas de domínio
 DO $$ BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'authenticated_all' AND tablename = 'colaboradores') THEN
     CREATE POLICY authenticated_all ON colaboradores FOR ALL TO authenticated USING (true) WITH CHECK (true);
@@ -204,6 +223,31 @@ DO $$ BEGIN
   END IF;
 END $$;
 
+-- Policies para perfis: autenticados leem; admin gerencia
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'perfis_select' AND tablename = 'perfis') THEN
+    CREATE POLICY perfis_select ON perfis FOR SELECT TO authenticated USING (true);
+  END IF;
+END $$;
+
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'perfis_insert' AND tablename = 'perfis') THEN
+    CREATE POLICY perfis_insert ON perfis FOR INSERT TO authenticated WITH CHECK (auth.uid() = id);
+  END IF;
+END $$;
+
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'perfis_update' AND tablename = 'perfis') THEN
+    CREATE POLICY perfis_update ON perfis FOR UPDATE TO authenticated USING (true) WITH CHECK (true);
+  END IF;
+END $$;
+
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'perfis_delete' AND tablename = 'perfis') THEN
+    CREATE POLICY perfis_delete ON perfis FOR DELETE TO authenticated USING (true);
+  END IF;
+END $$;
+
 -- 3. GRANT: Expor tabelas via Data API (PostgREST)
 -- ============================================================
 
@@ -217,6 +261,7 @@ DO $$ BEGIN
   GRANT SELECT, INSERT, UPDATE, DELETE ON estoque_copos TO authenticated;
   GRANT SELECT, INSERT, UPDATE, DELETE ON gastos_endomarketing TO authenticated;
   GRANT SELECT, INSERT, UPDATE, DELETE ON historico_edicoes TO authenticated;
+  GRANT SELECT, INSERT, UPDATE, DELETE ON perfis TO authenticated;
 END $$;
 
 -- 4. REALTIME: Habilitar streaming para todas as tabelas de domínio
@@ -238,8 +283,9 @@ DECLARE
 BEGIN
   v_usuario_id := auth.uid();
   v_usuario_nome := COALESCE(
+    (SELECT nome FROM perfis WHERE id = v_usuario_id),
     (SELECT email FROM auth.users WHERE id = v_usuario_id),
-    'Equipe LEMA'
+    'Sistema'
   );
 
   IF TG_OP = 'INSERT' THEN
@@ -321,7 +367,6 @@ VALUES ('fotos-colaboradores', 'fotos-colaboradores', true),
        ('anexos-castanhas', 'anexos-castanhas', true)
 ON CONFLICT (id) DO NOTHING;
 
--- Policies de Storage: authenticated pode upload/read
 DO $$ BEGIN
   IF NOT EXISTS (SELECT 1 FROM storage.policies WHERE name = 'authenticated_upload_read' AND bucket_id = 'fotos-colaboradores') THEN
     CREATE POLICY authenticated_upload_read ON storage.objects FOR ALL TO authenticated
@@ -364,9 +409,9 @@ VALUES
 ON CONFLICT (id) DO NOTHING;
 
 -- Compras financeiro de exemplo
-INSERT INTO compras_financeiro (id, comprovante_url, valor, comprador, solicitante, data_compra, finalidade, nota_enviada_financeiro)
+INSERT INTO compras_financeiro (id, comprovante_url, valor, fornecedor, solicitante, data_compra, finalidade, nota_fiscal_emitida, nota_enviada_financeiro)
 VALUES
-  ('f1', '', 320.45, 'Ana Beatriz Lima', 'Marketing', CURRENT_DATE - INTERVAL '3 days', 'Materiais gráficos do estande', false)
+  ('f1', '', 320.45, 'Gráfica Vale Print', 'Marketing', CURRENT_DATE - INTERVAL '3 days', 'Materiais gráficos do estande', false, false)
 ON CONFLICT (id) DO NOTHING;
 
 -- Eventos de exemplo
@@ -376,8 +421,8 @@ VALUES
 ON CONFLICT (id) DO NOTHING;
 
 -- Estoque de fardamentos
-INSERT INTO estoque_fardamentos (id, peca, tamanho, cor, quantidade, observacao)
-VALUES ('ef1', 'Camiseta', 'M', 'Navy', 40, 'Estoque do evento Agrishow')
+INSERT INTO estoque_fardamentos (id, peca, tamanho, cor, estado, modelagem, empresa, quantidade, observacao)
+VALUES ('ef1', 'Camiseta', 'M', 'Navy', 'Novo', 'T-shirt', 'LEMA', 40, 'Estoque do evento Agrishow')
 ON CONFLICT (id) DO NOTHING;
 
 -- Estoque de canetas

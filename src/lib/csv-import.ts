@@ -24,7 +24,10 @@ export function parseCsvLine(line: string): string[] {
 }
 
 export function parseCsv(text: string): Record<string, string>[] {
-  const clean = text.replace(/^\uFEFF/, "").replace(/\r\n?/g, "\n").trim();
+  const clean = text
+    .replace(/^\uFEFF/, "")
+    .replace(/\r\n?/g, "\n")
+    .trim();
   if (!clean) return [];
   const lines = clean.split("\n").filter((l) => l.trim().length > 0);
   const headers = parseCsvLine(lines[0]!);

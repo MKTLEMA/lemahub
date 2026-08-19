@@ -69,7 +69,9 @@ function EstoqueFardamentosPage() {
   const rows = useMemo(() => {
     const q = busca.toLowerCase();
     return db.estoque_fardamentos.filter((r) =>
-      `${r.peca} ${r.tamanho} ${r.cor} ${r.estado} ${r.modelagem} ${r.empresa} ${r.observacao}`.toLowerCase().includes(q),
+      `${r.peca} ${r.tamanho} ${r.cor} ${r.estado} ${r.modelagem} ${r.empresa} ${r.observacao}`
+        .toLowerCase()
+        .includes(q),
     );
   }, [db.estoque_fardamentos, busca]);
 
@@ -125,7 +127,10 @@ function EstoqueFardamentosPage() {
             {rows.map((r) => (
               <TableRow key={r.id} className="animate-rise">
                 <TableCell className="font-medium">
-                  <ProximityDot severidade={r.quantidade <= limite ? "alerta" : "ok"} label={r.peca} />
+                  <ProximityDot
+                    severidade={r.quantidade <= limite ? "alerta" : "ok"}
+                    label={r.peca}
+                  />
                 </TableCell>
                 <TableCell>{r.tamanho}</TableCell>
                 <TableCell>{r.cor}</TableCell>

@@ -44,9 +44,7 @@ function Home() {
   const castanhasPendentes = db.compras_castanhas.filter(
     (k) => !k.nota_fiscal_emitida || !k.nota_enviada_financeiro,
   ).length;
-  const financeiroPendente = db.compras_financeiro.filter(
-    (f) => !f.nota_enviada_financeiro,
-  ).length;
+  const financeiroPendente = db.compras_financeiro.filter((f) => !f.nota_enviada_financeiro).length;
   const eventosProximos = db.eventos.filter((e) => {
     const d = diasAte(e.data_inicio);
     return d !== null && d >= 0 && d <= 3;
@@ -115,50 +113,50 @@ function Home() {
       </div>
 
       <div className="grid gap-6 lg:grid-cols-2">
-      <section className="animate-rise">
-        <CalendarBoard
-          compact
-          modo="ambos"
-          cursor={cursor}
-          onCursor={setCursor}
-          eventos={db.eventos}
-          aniversariantes={db.colaboradores}
-          onPickEvento={(id) => {
-            void router.navigate({ to: "/eventos", state: { destacarEventoId: id } as never });
-          }}
-          onPickAniversariante={(id) =>
-            setDetalhe(db.colaboradores.find((c) => c.id === id) ?? null)
-          }
-        />
-      </section>
+        <section className="animate-rise">
+          <CalendarBoard
+            compact
+            modo="ambos"
+            cursor={cursor}
+            onCursor={setCursor}
+            eventos={db.eventos}
+            aniversariantes={db.colaboradores}
+            onPickEvento={(id) => {
+              void router.navigate({ to: "/eventos", state: { destacarEventoId: id } as never });
+            }}
+            onPickAniversariante={(id) =>
+              setDetalhe(db.colaboradores.find((c) => c.id === id) ?? null)
+            }
+          />
+        </section>
 
-      <section className="animate-rise rounded-xl border border-border bg-card p-4">
-        <div className="mb-3 flex items-center justify-between">
-          <h2 className="font-display text-lg font-semibold">Central de Alertas</h2>
-          <Link to="/alertas" className="text-sm text-accent hover:underline">
-            Ver tudo
-          </Link>
-        </div>
-        {alertas.length === 0 ? (
-          <p className="py-6 text-center text-sm text-muted-foreground">
-            Nenhum alerta no momento.
-          </p>
-        ) : (
-          <ul className="divide-y divide-border">
-            {alertas.slice(0, 8).map((a) => (
-              <li key={a.id} className="flex items-start gap-3 py-3">
-                <ProximityDot severidade={a.severidade} className="mt-1" />
-                <div>
-                  <p className="text-sm font-medium">{a.titulo}</p>
-                  <p className="text-xs text-muted-foreground">
-                    {LABELS[a.tabela]} · {a.descricao}
-                  </p>
-                </div>
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
+        <section className="animate-rise rounded-xl border border-border bg-card p-4">
+          <div className="mb-3 flex items-center justify-between">
+            <h2 className="font-display text-lg font-semibold">Central de Alertas</h2>
+            <Link to="/alertas" className="text-sm text-accent hover:underline">
+              Ver tudo
+            </Link>
+          </div>
+          {alertas.length === 0 ? (
+            <p className="py-6 text-center text-sm text-muted-foreground">
+              Nenhum alerta no momento.
+            </p>
+          ) : (
+            <ul className="divide-y divide-border">
+              {alertas.slice(0, 8).map((a) => (
+                <li key={a.id} className="flex items-start gap-3 py-3">
+                  <ProximityDot severidade={a.severidade} className="mt-1" />
+                  <div>
+                    <p className="text-sm font-medium">{a.titulo}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {LABELS[a.tabela]} · {a.descricao}
+                    </p>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
       </div>
 
       <ColaboradorCard colaborador={detalhe} onOpenChange={(o) => !o && setDetalhe(null)} />

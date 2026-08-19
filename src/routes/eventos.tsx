@@ -28,7 +28,10 @@ export const Route = createFileRoute("/eventos")({
   head: () => ({
     meta: [
       { title: "Eventos — Hub LEMA" },
-      { name: "description", content: "Agenda de eventos, participantes e materiais do marketing." },
+      {
+        name: "description",
+        content: "Agenda de eventos, participantes e materiais do marketing.",
+      },
       { property: "og:title", content: "Eventos — Hub LEMA" },
       { property: "og:description", content: "Agenda de eventos e checklist de materiais." },
     ],

@@ -24,7 +24,6 @@ export type Colaborador = {
   updated_at: string;
 };
 
-
 export type CompraCastanha = {
   id: string;
   solicitante: string;
@@ -57,7 +56,6 @@ export type CompraFinanceiro = {
   created_at: string;
   updated_at: string;
 };
-
 
 export type Evento = {
   id: string;
@@ -93,7 +91,6 @@ export type EstoqueFardamento = {
   created_at: string;
   updated_at: string;
 };
-
 
 export type EstoqueCaneta = {
   id: string;
@@ -140,6 +137,7 @@ export type HistoricoEdicao = {
   id: string;
   tabela: TabelaNome;
   registro_id: string;
+  usuario_id?: string | null;
   usuario_nome: string;
   acao: "criacao" | "edicao" | "exclusao";
   campo_alterado: string | null;

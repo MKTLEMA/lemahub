@@ -27,6 +27,12 @@ import { deleteRow, insertRow, updateRow, useDb } from "@/lib/store";
 import { diasAteAniversario } from "@/lib/alerts";
 import { exportCsv } from "@/lib/csv";
 import { ColorTag } from "@/components/color-tag";
+import {
+  SortControls,
+  applySort,
+  type SortConfig,
+  type SortOption,
+} from "@/components/sort-controls";
 import type { Colaborador } from "@/lib/types";
 
 export const Route = createFileRoute("/colaboradores")({
@@ -124,9 +130,18 @@ function ColaboradoresPage() {
     [db.colaboradores],
   );
 
+  const SORT_OPTS: SortOption[] = [
+    { value: "nome", label: "Nome", type: "text" },
+    { value: "empresa_grupo", label: "Empresa", type: "text" },
+    { value: "setor", label: "Setor", type: "text" },
+    { value: "data_aniversario", label: "Aniversário", type: "date" },
+    { value: "data_ingresso", label: "Admissão", type: "date" },
+  ];
+  const [sort, setSort] = useState<SortConfig | null>(null);
+
   const rows = useMemo(() => {
     const q = busca.toLowerCase();
-    return db.colaboradores
+    const filtered = db.colaboradores
       .filter((c) => `${c.nome} ${c.setor} ${c.email} ${c.empresa_grupo}`.toLowerCase().includes(q))
       .filter(
         (c) =>
@@ -140,7 +155,13 @@ function ColaboradoresPage() {
       .filter((c) => fGenero === "Todos" || c.genero === fGenero)
       .filter((c) => fSetor === "Todos" || c.setor === fSetor)
       .filter((c) => fModal === "Todas" || c.formato_trabalho === fModal);
-  }, [db.colaboradores, busca, mes, mesAdm, fEmpresa, fGenero, fSetor, fModal]);
+    return applySort(
+      filtered,
+      sort,
+      SORT_OPTS,
+      (c, f) => (c as unknown as Record<string, string | number | null>)[f],
+    );
+  }, [db.colaboradores, busca, mes, mesAdm, fEmpresa, fGenero, fSetor, fModal, sort]);
 
   return (
     <>
@@ -189,6 +210,7 @@ function ColaboradoresPage() {
         }}
         extra={
           <div className="flex flex-wrap gap-2">
+            <SortControls options={SORT_OPTS} value={sort} onChange={setSort} />
             <Select value={fEmpresa} onValueChange={setFEmpresa}>
               <SelectTrigger className="w-32" aria-label="Empresa">
                 <SelectValue />

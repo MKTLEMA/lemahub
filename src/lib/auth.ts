@@ -53,17 +53,29 @@ export async function currentConta(): Promise<Conta | null> {
     cachedConta = null;
     return null;
   }
-  const { data: perfil } = await supabase
+  const { data: perfil, error: perfilErr } = await supabase
     .from("perfis")
     .select("nome, role")
     .eq("id", user.id)
     .maybeSingle();
+  if (perfilErr) {
+    console.error("Erro ao buscar perfil (currentConta):", perfilErr.message);
+  }
+  let resolvedPerfil = perfil;
+  if (!resolvedPerfil) {
+    const { data: retry } = await supabase
+      .from("perfis")
+      .select("nome, role")
+      .eq("id", user.id)
+      .maybeSingle();
+    if (retry) resolvedPerfil = retry;
+  }
   contaFetched = true;
   cachedConta = {
     id: user.id,
     email: user.email ?? "",
-    nome: perfil?.nome ?? user.email?.split("@")[0] ?? "",
-    role: (perfil?.role as Role) ?? "editor",
+    nome: resolvedPerfil?.nome ?? user.email?.split("@")[0] ?? "",
+    role: (resolvedPerfil?.role as Role) ?? "editor",
   };
   return cachedConta;
 }

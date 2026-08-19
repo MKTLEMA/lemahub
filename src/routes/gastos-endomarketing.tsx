@@ -33,6 +33,12 @@ import { EntityForm, type FieldSpec, type FormValues } from "@/components/entity
 import { HistoricoDialog } from "@/components/historico-dialog";
 import { deleteRow, insertRow, updateRow, useDb } from "@/lib/store";
 import { exportCsv } from "@/lib/csv";
+import {
+  SortControls,
+  applySort,
+  type SortConfig,
+  type SortOption,
+} from "@/components/sort-controls";
 import type { GastoEndomarketing } from "@/lib/types";
 
 export const Route = createFileRoute("/gastos-endomarketing")({
@@ -89,9 +95,17 @@ function GastosPage() {
     return { inicio, fim };
   }, [mesRef, periodo]);
 
+  const SORT_OPTS: SortOption[] = [
+    { value: "nome_evento", label: "Evento", type: "text" },
+    { value: "mes", label: "Mês", type: "date" },
+    { value: "descritivo", label: "Descritivo", type: "text" },
+    { value: "valor", label: "Valor", type: "number" },
+  ];
+  const [sort, setSort] = useState<SortConfig | null>(null);
+
   const rows = useMemo(() => {
     const q = busca.toLowerCase();
-    return db.gastos_endomarketing
+    const filtered = db.gastos_endomarketing
       .filter((g) => `${g.nome_evento} ${g.descritivo}`.toLowerCase().includes(q))
       .filter((g) => {
         if (!g.mes) return false;
@@ -100,7 +114,13 @@ function GastosPage() {
         return d > janela.inicio && d <= janela.fim;
       })
       .sort((a, b) => b.mes.localeCompare(a.mes));
-  }, [db.gastos_endomarketing, busca, janela]);
+    return applySort(
+      filtered,
+      sort,
+      SORT_OPTS,
+      (g, f) => (g as unknown as Record<string, string | number | null>)[f],
+    );
+  }, [db.gastos_endomarketing, busca, janela, sort]);
 
   const total = rows.reduce((acc, g) => acc + Number(g.valor || 0), 0);
 
@@ -142,6 +162,7 @@ function GastosPage() {
         onExportar={() => exportCsv("gastos-endomarketing", rows)}
         extra={
           <div className="flex flex-wrap items-center gap-2">
+            <SortControls options={SORT_OPTS} value={sort} onChange={setSort} />
             <Select value={mesRef} onValueChange={setMesRef}>
               <SelectTrigger className="w-36" aria-label="Mês de referência">
                 <SelectValue />

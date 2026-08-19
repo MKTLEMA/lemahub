@@ -18,6 +18,12 @@ import { exportCsv } from "@/lib/csv";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { getThresholds, setThreshold, subscribeThresholds } from "@/lib/thresholds";
+import {
+  SortControls,
+  applySort,
+  type SortConfig,
+  type SortOption,
+} from "@/components/sort-controls";
 import type { EstoqueCopo } from "@/lib/types";
 
 export const Route = createFileRoute("/estoque-copos")({
@@ -53,12 +59,25 @@ function EstoqueCoposPage() {
     return subscribeThresholds(() => setLimite(getThresholds()["copos"]));
   }, []);
 
+  const SORT_OPTS: SortOption[] = [
+    { value: "tipo", label: "Tipo", type: "text" },
+    { value: "capacidade", label: "Capacidade", type: "text" },
+    { value: "cor", label: "Cor", type: "text" },
+    { value: "quantidade", label: "Quantidade", type: "number" },
+  ];
+  const [sort, setSort] = useState<SortConfig | null>(null);
   const rows = useMemo(() => {
     const q = busca.toLowerCase();
-    return db.estoque_copos.filter((r) =>
+    const filtered = db.estoque_copos.filter((r) =>
       `${r.tipo} ${r.capacidade} ${r.cor} ${r.observacao}`.toLowerCase().includes(q),
     );
-  }, [db.estoque_copos, busca]);
+    return applySort(
+      filtered,
+      sort,
+      SORT_OPTS,
+      (r, f) => (r as unknown as Record<string, string | number | null>)[f],
+    );
+  }, [db.estoque_copos, busca, sort]);
 
   return (
     <>
@@ -72,7 +91,8 @@ function EstoqueCoposPage() {
           setOpen(true);
         }}
         extra={
-          <span className="flex items-center gap-2">
+          <div className="flex items-center gap-2">
+            <SortControls options={SORT_OPTS} value={sort} onChange={setSort} />
             <Label htmlFor="limite" className="whitespace-nowrap text-xs text-muted-foreground">
               Estoque baixo &le;
             </Label>
@@ -88,7 +108,7 @@ function EstoqueCoposPage() {
                 setThreshold("copos", v);
               }}
             />
-          </span>
+          </div>
         }
         onExportar={() => exportCsv("estoque-copos", rows)}
       />

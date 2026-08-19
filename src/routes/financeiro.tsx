@@ -18,6 +18,12 @@ import { HistoricoDialog } from "@/components/historico-dialog";
 import { ProximityDot } from "@/components/proximity-dot";
 import { deleteRow, insertRow, updateRow, useDb } from "@/lib/store";
 import { exportCsv } from "@/lib/csv";
+import {
+  SortControls,
+  applySort,
+  type SortConfig,
+  type SortOption,
+} from "@/components/sort-controls";
 import type { CompraFinanceiro } from "@/lib/types";
 
 export const Route = createFileRoute("/financeiro")({
@@ -56,12 +62,26 @@ function FinanceiroPage() {
   const [editando, setEditando] = useState<CompraFinanceiro | null>(null);
   const [historicoId, setHistoricoId] = useState<string | null>(null);
 
+  const SORT_OPTS: SortOption[] = [
+    { value: "finalidade", label: "Finalidade", type: "text" },
+    { value: "fornecedor", label: "Fornecedor", type: "text" },
+    { value: "solicitante", label: "Solicitante", type: "text" },
+    { value: "valor", label: "Valor", type: "number" },
+    { value: "data_compra", label: "Data", type: "date" },
+  ];
+  const [sort, setSort] = useState<SortConfig | null>(null);
   const rows = useMemo(() => {
     const q = busca.toLowerCase();
-    return db.compras_financeiro.filter((f) =>
+    const filtered = db.compras_financeiro.filter((f) =>
       `${f.finalidade} ${f.fornecedor} ${f.solicitante}`.toLowerCase().includes(q),
     );
-  }, [db.compras_financeiro, busca]);
+    return applySort(
+      filtered,
+      sort,
+      SORT_OPTS,
+      (f, field) => (f as unknown as Record<string, string | number | null>)[field],
+    );
+  }, [db.compras_financeiro, busca, sort]);
 
   return (
     <>
@@ -75,6 +95,7 @@ function FinanceiroPage() {
           setOpen(true);
         }}
         onExportar={() => exportCsv("compras-financeiro", rows)}
+        extra={<SortControls options={SORT_OPTS} value={sort} onChange={setSort} />}
       />
 
       <div className="animate-rise overflow-hidden rounded-xl border border-border bg-card">

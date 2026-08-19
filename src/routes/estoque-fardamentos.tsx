@@ -18,6 +18,12 @@ import { exportCsv } from "@/lib/csv";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { getThresholds, setThreshold, subscribeThresholds } from "@/lib/thresholds";
+import {
+  SortControls,
+  applySort,
+  type SortConfig,
+  type SortOption,
+} from "@/components/sort-controls";
 import type { EstoqueFardamento } from "@/lib/types";
 
 export const Route = createFileRoute("/estoque-fardamentos")({
@@ -66,14 +72,28 @@ function EstoqueFardamentosPage() {
     return subscribeThresholds(() => setLimite(getThresholds()["fardamentos"]));
   }, []);
 
+  const SORT_OPTS: SortOption[] = [
+    { value: "peca", label: "Peça", type: "text" },
+    { value: "tamanho", label: "Tamanho", type: "text" },
+    { value: "cor", label: "Cor", type: "text" },
+    { value: "empresa", label: "Empresa", type: "text" },
+    { value: "quantidade", label: "Quantidade", type: "number" },
+  ];
+  const [sort, setSort] = useState<SortConfig | null>(null);
   const rows = useMemo(() => {
     const q = busca.toLowerCase();
-    return db.estoque_fardamentos.filter((r) =>
+    const filtered = db.estoque_fardamentos.filter((r) =>
       `${r.peca} ${r.tamanho} ${r.cor} ${r.estado} ${r.modelagem} ${r.empresa} ${r.observacao}`
         .toLowerCase()
         .includes(q),
     );
-  }, [db.estoque_fardamentos, busca]);
+    return applySort(
+      filtered,
+      sort,
+      SORT_OPTS,
+      (r, f) => (r as unknown as Record<string, string | number | null>)[f],
+    );
+  }, [db.estoque_fardamentos, busca, sort]);
 
   return (
     <>
@@ -87,7 +107,8 @@ function EstoqueFardamentosPage() {
           setOpen(true);
         }}
         extra={
-          <span className="flex items-center gap-2">
+          <div className="flex items-center gap-2">
+            <SortControls options={SORT_OPTS} value={sort} onChange={setSort} />
             <Label htmlFor="limite" className="whitespace-nowrap text-xs text-muted-foreground">
               Estoque baixo &le;
             </Label>
@@ -103,7 +124,7 @@ function EstoqueFardamentosPage() {
                 setThreshold("fardamentos", v);
               }}
             />
-          </span>
+          </div>
         }
         onExportar={() => exportCsv("estoque-fardamentos", rows)}
       />

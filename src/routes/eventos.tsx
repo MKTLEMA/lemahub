@@ -20,6 +20,12 @@ import { ProximityDot } from "@/components/proximity-dot";
 import { deleteRow, insertRow, updateRow, useDb } from "@/lib/store";
 import { diasAte } from "@/lib/alerts";
 import { exportCsv } from "@/lib/csv";
+import {
+  SortControls,
+  applySort,
+  type SortConfig,
+  type SortOption,
+} from "@/components/sort-controls";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { CalendarBoard, type CalendarModo } from "@/components/calendar-board";
 import type { Evento } from "@/lib/types";
@@ -122,14 +128,27 @@ function EventosPage() {
     return () => clearTimeout(t);
   }, [stateDestaque, router]);
 
+  const SORT_OPTS: SortOption[] = [
+    { value: "nome", label: "Evento", type: "text" },
+    { value: "data_inicio", label: "Início", type: "date" },
+    { value: "data_fim", label: "Fim", type: "date" },
+    { value: "local", label: "Local", type: "text" },
+  ];
+  const [sort, setSort] = useState<SortConfig | null>(null);
   const rows = useMemo(() => {
     const q = busca.toLowerCase();
-    return db.eventos.filter((e) =>
+    const filtered = db.eventos.filter((e) =>
       `${e.nome} ${e.cidade} ${e.estado} ${e.local} ${e.associacao_relacionada}`
         .toLowerCase()
         .includes(q),
     );
-  }, [db.eventos, busca]);
+    return applySort(
+      filtered,
+      sort,
+      SORT_OPTS,
+      (e, f) => (e as unknown as Record<string, string | number | null>)[f],
+    );
+  }, [db.eventos, busca, sort]);
 
   const abrirNovo = (dataInicio?: string) => {
     setEditando(null);
@@ -188,6 +207,7 @@ function EventosPage() {
           });
           toast.success(`${total} evento(s) importado(s).`);
         }}
+        extra={<SortControls options={SORT_OPTS} value={sort} onChange={setSort} />}
       />
 
       <Tabs value={tab} onValueChange={setTab} className="animate-rise">

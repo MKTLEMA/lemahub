@@ -20,6 +20,12 @@ import { deleteRow, insertRow, updateRow, useDb } from "@/lib/store";
 import { diasAte, severidadePorDias } from "@/lib/alerts";
 import { exportCsv } from "@/lib/csv";
 import { cn } from "@/lib/utils";
+import {
+  SortControls,
+  applySort,
+  type SortConfig,
+  type SortOption,
+} from "@/components/sort-controls";
 import type { CompraCastanha } from "@/lib/types";
 
 export const Route = createFileRoute("/castanhas")({
@@ -91,12 +97,26 @@ function CastanhasPage() {
           (!!k.numero_nf?.trim() && o.numero_nf?.trim() === k.numero_nf.trim())),
     );
 
+  const SORT_OPTS: SortOption[] = [
+    { value: "fornecedor", label: "Fornecedor", type: "text" },
+    { value: "finalidade", label: "Finalidade", type: "text" },
+    { value: "solicitante", label: "Solicitante", type: "text" },
+    { value: "valor", label: "Valor", type: "number" },
+    { value: "prazo_entrega", label: "Prazo", type: "text" },
+  ];
+  const [sort, setSort] = useState<SortConfig | null>(null);
   const rows = useMemo(() => {
     const q = busca.toLowerCase();
-    return db.compras_castanhas.filter((k) =>
+    const filtered = db.compras_castanhas.filter((k) =>
       `${k.fornecedor} ${k.finalidade} ${k.solicitante}`.toLowerCase().includes(q),
     );
-  }, [db.compras_castanhas, busca]);
+    return applySort(
+      filtered,
+      sort,
+      SORT_OPTS,
+      (k, f) => (k as unknown as Record<string, string | number | null>)[f],
+    );
+  }, [db.compras_castanhas, busca, sort]);
 
   return (
     <>
@@ -135,6 +155,7 @@ function CastanhasPage() {
           });
           toast.success(`${total} compra(s) importada(s).`);
         }}
+        extra={<SortControls options={SORT_OPTS} value={sort} onChange={setSort} />}
       />
 
       <div className="animate-rise overflow-hidden rounded-xl border border-border bg-card">

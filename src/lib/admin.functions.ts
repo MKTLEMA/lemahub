@@ -16,20 +16,16 @@ async function requireAdmin(accessToken?: string) {
   if (!accessToken) throw new Error("Não autenticado.");
   const url = import.meta.env["VITE_SUPABASE_URL"] as string;
   const anonKey = import.meta.env["VITE_SUPABASE_ANON_KEY"] as string;
-  const client = createClient(url, anonKey, {
-    auth: { autoRefreshToken: false, persistSession: false },
-  });
-  const {
-    data: { user },
-    error,
-  } = await client.auth.getUser(accessToken);
-  if (error || !user) throw new Error("Sessão inválida.");
-  const { data: perfil } = await client
-    .from("perfis")
-    .select("role")
-    .eq("id", user.id)
-    .maybeSingle();
-  if (perfil?.role !== "admin") throw new Error("Acesso restrito a administradores.");
+  if (!url || !anonKey) throw new Error("Variáveis de ambiente não configuradas.");
+  const headers = { apikey: anonKey, Authorization: `Bearer ${accessToken}` };
+
+  const userRes = await fetch(`${url}/auth/v1/user`, { headers });
+  if (!userRes.ok) throw new Error("Sessão inválida.");
+  const user = await userRes.json();
+
+  const perfisRes = await fetch(`${url}/rest/v1/perfis?select=role&id=eq.${user.id}`, { headers });
+  const perfisData = await perfisRes.json();
+  if (perfisData[0]?.role !== "admin") throw new Error("Acesso restrito a administradores.");
   return user;
 }
 

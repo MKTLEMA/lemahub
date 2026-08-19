@@ -1,9 +1,18 @@
 import { createFileRoute, useRouter } from "@tanstack/react-router";
-import { Lock } from "lucide-react";
+import { Lock, Mail } from "lucide-react";
 import { useEffect, useState } from "react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { supabase } from "@/lib/supabase";
 import * as auth from "@/lib/auth";
 
 export const Route = createFileRoute("/login")({
@@ -30,6 +39,9 @@ function LoginPage() {
   const [password, setPassword] = useState("");
   const [erro, setErro] = useState(false);
   const [carregando, setCarregando] = useState(false);
+  const [resetOpen, setResetOpen] = useState(false);
+  const [resetEmail, setResetEmail] = useState("");
+  const [resetEnviando, setResetEnviando] = useState(false);
 
   useEffect(() => {
     void auth.currentEmail().then((e) => {
@@ -51,6 +63,24 @@ function LoginPage() {
       }
     } finally {
       setCarregando(false);
+    }
+  }
+
+  async function onReset(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    setResetEnviando(true);
+    try {
+      const redirectTo = `${window.location.origin}/reset-callback`;
+      const { error } = await supabase.auth.resetPasswordForEmail(resetEmail, { redirectTo });
+      if (error) {
+        toast.error(error.message);
+      } else {
+        toast.success("Se o e-mail existir, você receberá um link de redefinição.");
+        setResetOpen(false);
+        setResetEmail("");
+      }
+    } finally {
+      setResetEnviando(false);
     }
   }
 
@@ -97,8 +127,45 @@ function LoginPage() {
           <Button type="submit" className="w-full" disabled={carregando}>
             <Lock className="size-4" /> {carregando ? "Entrando..." : "Entrar"}
           </Button>
+          <button
+            type="button"
+            className="mx-auto block text-sm text-muted-foreground hover:text-foreground hover:underline"
+            onClick={() => {
+              setResetEmail(email);
+              setResetOpen(true);
+            }}
+          >
+            Esqueci a senha?
+          </button>
         </div>
       </form>
+
+      <Dialog open={resetOpen} onOpenChange={setResetOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="font-display">Redefinir senha</DialogTitle>
+            <DialogDescription>
+              Enviaremos um link de redefinição para o e-mail cadastrado.
+            </DialogDescription>
+          </DialogHeader>
+          <form onSubmit={onReset} className="space-y-4">
+            <div className="space-y-1.5">
+              <Label htmlFor="reset-email">E-mail</Label>
+              <Input
+                id="reset-email"
+                type="email"
+                required
+                value={resetEmail}
+                onChange={(e) => setResetEmail(e.target.value)}
+                placeholder="voce@lemaef.com.br"
+              />
+            </div>
+            <Button type="submit" className="w-full" disabled={resetEnviando}>
+              <Mail className="size-4" /> {resetEnviando ? "Enviando..." : "Enviar link"}
+            </Button>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

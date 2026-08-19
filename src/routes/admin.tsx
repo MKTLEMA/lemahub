@@ -65,10 +65,15 @@ function AdminPage() {
     email: string;
     senha: string;
   } | null>(null);
+  const [token, setToken] = useState("");
 
   async function carregar() {
     const conta = await auth.currentConta();
     setEu(conta);
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+    setToken(session?.access_token ?? "");
     const { data } = await supabase.from("perfis").select("id, email, nome, role").order("email");
     setPerfis((data as Perfil[]) ?? []);
   }
@@ -95,7 +100,7 @@ function AdminPage() {
     e.preventDefault();
     try {
       const res = await createUser({
-        data: { email, password: "Temp1234!" },
+        data: { accessToken: token, email, password: "Temp1234!" },
       });
       await supabase.from("perfis").upsert({
         id: res.id,
@@ -248,7 +253,7 @@ function AdminPage() {
                         const nova = "Temp1234!";
                         try {
                           await resetPassword({
-                            data: { userId: p.id, password: nova },
+                            data: { accessToken: token, userId: p.id, password: nova },
                           });
                           setSenhaGerada({ email: p.email, senha: nova });
                           toast.success("Senha redefinida.");
@@ -265,7 +270,7 @@ function AdminPage() {
                       disabled={p.id === eu?.id}
                       onClick={async () => {
                         try {
-                          await deleteUser({ data: { userId: p.id } });
+                          await deleteUser({ data: { accessToken: token, userId: p.id } });
                           await supabase.from("perfis").delete().eq("id", p.id);
                           toast.success("Conta removida.");
                           void carregar();

@@ -23,6 +23,7 @@ import { Route as GastosEndomarketingRouteImport } from './routes/gastos-endomar
 import { Route as HistoricoRouteImport } from './routes/historico'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as PerfilRouteImport } from './routes/perfil'
+import { Route as ResetCallbackRouteImport } from './routes/reset-callback'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -94,6 +95,11 @@ const PerfilRoute = PerfilRouteImport.update({
   path: '/perfil',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ResetCallbackRoute = ResetCallbackRouteImport.update({
+  id: '/reset-callback',
+  path: '/reset-callback',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -110,6 +116,7 @@ export interface FileRoutesByFullPath {
   '/historico': typeof HistoricoRoute
   '/login': typeof LoginRoute
   '/perfil': typeof PerfilRoute
+  '/reset-callback': typeof ResetCallbackRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -126,6 +133,7 @@ export interface FileRoutesByTo {
   '/historico': typeof HistoricoRoute
   '/login': typeof LoginRoute
   '/perfil': typeof PerfilRoute
+  '/reset-callback': typeof ResetCallbackRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -143,6 +151,7 @@ export interface FileRoutesById {
   '/historico': typeof HistoricoRoute
   '/login': typeof LoginRoute
   '/perfil': typeof PerfilRoute
+  '/reset-callback': typeof ResetCallbackRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -161,6 +170,7 @@ export interface FileRouteTypes {
     | '/historico'
     | '/login'
     | '/perfil'
+    | '/reset-callback'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -177,6 +187,7 @@ export interface FileRouteTypes {
     | '/historico'
     | '/login'
     | '/perfil'
+    | '/reset-callback'
   id:
     | '__root__'
     | '/'
@@ -193,6 +204,7 @@ export interface FileRouteTypes {
     | '/historico'
     | '/login'
     | '/perfil'
+    | '/reset-callback'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -210,6 +222,7 @@ export interface RootRouteChildren {
   HistoricoRoute: typeof HistoricoRoute
   LoginRoute: typeof LoginRoute
   PerfilRoute: typeof PerfilRoute
+  ResetCallbackRoute: typeof ResetCallbackRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -312,6 +325,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PerfilRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/reset-callback': {
+      id: '/reset-callback'
+      path: '/reset-callback'
+      fullPath: '/reset-callback'
+      preLoaderRoute: typeof ResetCallbackRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -330,6 +350,7 @@ const rootRouteChildren: RootRouteChildren = {
   HistoricoRoute: HistoricoRoute,
   LoginRoute: LoginRoute,
   PerfilRoute: PerfilRoute,
+  ResetCallbackRoute: ResetCallbackRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

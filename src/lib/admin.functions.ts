@@ -12,20 +12,45 @@ function getAdminClient() {
   });
 }
 
-export const listUsers = createServerFn({ method: "GET" }).handler(async () => {
-  const admin = getAdminClient();
-  const { data, error } = await admin.auth.admin.listUsers();
-  if (error) throw new Error(error.message);
-  return (data?.users ?? []).map((u) => ({
-    id: u.id,
-    email: u.email ?? "",
-    created_at: u.created_at,
-  }));
-});
+async function requireAdmin(accessToken?: string) {
+  if (!accessToken) throw new Error("Não autenticado.");
+  const url = import.meta.env["VITE_SUPABASE_URL"] as string;
+  const anonKey = import.meta.env["VITE_SUPABASE_ANON_KEY"] as string;
+  const client = createClient(url, anonKey, {
+    auth: { autoRefreshToken: false, persistSession: false },
+  });
+  const {
+    data: { user },
+    error,
+  } = await client.auth.getUser(accessToken);
+  if (error || !user) throw new Error("Sessão inválida.");
+  const { data: perfil } = await client
+    .from("perfis")
+    .select("role")
+    .eq("id", user.id)
+    .maybeSingle();
+  if (perfil?.role !== "admin") throw new Error("Acesso restrito a administradores.");
+  return user;
+}
+
+export const listUsers = createServerFn({ method: "POST" })
+  .validator((d: { accessToken: string }) => d)
+  .handler(async ({ data }) => {
+    await requireAdmin(data.accessToken);
+    const admin = getAdminClient();
+    const { data: result, error } = await admin.auth.admin.listUsers();
+    if (error) throw new Error(error.message);
+    return (result?.users ?? []).map((u) => ({
+      id: u.id,
+      email: u.email ?? "",
+      created_at: u.created_at,
+    }));
+  });
 
 export const createUser = createServerFn({ method: "POST" })
-  .validator((d: { email: string; password: string }) => d)
+  .validator((d: { accessToken: string; email: string; password: string }) => d)
   .handler(async ({ data }) => {
+    await requireAdmin(data.accessToken);
     const admin = getAdminClient();
     const { data: created, error } = await admin.auth.admin.createUser({
       email: data.email,
@@ -37,8 +62,9 @@ export const createUser = createServerFn({ method: "POST" })
   });
 
 export const resetPassword = createServerFn({ method: "POST" })
-  .validator((d: { userId: string; password: string }) => d)
+  .validator((d: { accessToken: string; userId: string; password: string }) => d)
   .handler(async ({ data }) => {
+    await requireAdmin(data.accessToken);
     const admin = getAdminClient();
     const { error } = await admin.auth.admin.updateUserById(data.userId, {
       password: data.password,
@@ -48,8 +74,9 @@ export const resetPassword = createServerFn({ method: "POST" })
   });
 
 export const deleteUser = createServerFn({ method: "POST" })
-  .validator((d: { userId: string }) => d)
+  .validator((d: { accessToken: string; userId: string }) => d)
   .handler(async ({ data }) => {
+    await requireAdmin(data.accessToken);
     const admin = getAdminClient();
     const { error } = await admin.auth.admin.deleteUser(data.userId);
     if (error) throw new Error(error.message);

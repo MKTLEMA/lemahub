@@ -7,6 +7,7 @@ import {
   useRouterState,
   HeadContent,
   Scripts,
+  redirect,
 } from "@tanstack/react-router";
 import { useEffect, type ReactNode } from "react";
 
@@ -14,6 +15,9 @@ import appCss from "../styles.css?url";
 import { AppShell } from "@/components/app-shell";
 import { Toaster } from "@/components/ui/sonner";
 import { reportLovableError } from "../lib/lovable-error-reporting";
+import * as auth from "@/lib/auth";
+
+const PUBLIC_ROUTES = ["/login", "/reset-callback"];
 
 function NotFoundComponent() {
   return (
@@ -108,6 +112,14 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { rel: "icon", href: "/favicon.ico", type: "image/x-icon" },
     ],
   }),
+  beforeLoad: async ({ location }) => {
+    if (PUBLIC_ROUTES.includes(location.pathname)) return;
+    if (import.meta.env.SSR) return;
+    const email = await auth.currentEmail();
+    if (!email) {
+      throw redirect({ to: "/login" });
+    }
+  },
   shellComponent: RootShell,
   component: RootComponent,
   notFoundComponent: NotFoundComponent,
@@ -131,11 +143,11 @@ function RootShell({ children }: { children: ReactNode }) {
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
-  const isLogin = pathname === "/login";
+  const isPublic = PUBLIC_ROUTES.includes(pathname);
 
   return (
     <QueryClientProvider client={queryClient}>
-      {isLogin ? (
+      {isPublic ? (
         <Outlet />
       ) : (
         <AppShell>

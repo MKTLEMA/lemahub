@@ -36,8 +36,8 @@ function convertDate(d) {
 
 const csv = readFileSync(
 	"C:\\Users\\Andre\\LEMA\\Grupo Marketing - Documentos\\LISTAGEM DE COLABORADORES - GRUPOS LEMA.csv",
-	"latin1",
-);
+	"utf8",
+).replace(/^\uFEFF/, "");
 const rows = parseSemicolonCsv(csv.toString());
 
 const mapped = rows.map((r) => ({

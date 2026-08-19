@@ -238,14 +238,14 @@ function EventosPage() {
                       <TableCell>
                         {e.local}
                         <span className="block text-xs text-muted-foreground">
-                          {e.cidade}/{e.estado}
+                          {e.cidade ? `${e.cidade}/${e.estado ?? ""}` : e.local ? "" : "—"}
                         </span>
                       </TableCell>
                       <TableCell className="tabular-nums">
-                        {e.data_inicio.split("-").reverse().join("/")}
+                        {e.data_inicio ? e.data_inicio.split("-").reverse().join("/") : "—"}
                       </TableCell>
                       <TableCell className="tabular-nums">
-                        {e.data_fim.split("-").reverse().join("/")}
+                        {e.data_fim ? e.data_fim.split("-").reverse().join("/") : "—"}
                       </TableCell>
                       <TableCell className="max-w-40 truncate">
                         {e.participantes.join(", ") || "—"}

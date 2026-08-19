@@ -368,24 +368,24 @@ VALUES ('fotos-colaboradores', 'fotos-colaboradores', true),
 ON CONFLICT (id) DO NOTHING;
 
 DO $$ BEGIN
-  IF NOT EXISTS (SELECT 1 FROM storage.policies WHERE name = 'authenticated_upload_read' AND bucket_id = 'fotos-colaboradores') THEN
-    CREATE POLICY authenticated_upload_read ON storage.objects FOR ALL TO authenticated
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'authenticated_upload_read_fotos' AND tablename = 'objects' AND schemaname = 'storage') THEN
+    CREATE POLICY authenticated_upload_read_fotos ON storage.objects FOR ALL TO authenticated
       USING (bucket_id = 'fotos-colaboradores')
       WITH CHECK (bucket_id = 'fotos-colaboradores');
   END IF;
 END $$;
 
 DO $$ BEGIN
-  IF NOT EXISTS (SELECT 1 FROM storage.policies WHERE name = 'authenticated_upload_read' AND bucket_id = 'comprovantes-financeiro') THEN
-    CREATE POLICY authenticated_upload_read ON storage.objects FOR ALL TO authenticated
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'authenticated_upload_read_comprovantes' AND tablename = 'objects' AND schemaname = 'storage') THEN
+    CREATE POLICY authenticated_upload_read_comprovantes ON storage.objects FOR ALL TO authenticated
       USING (bucket_id = 'comprovantes-financeiro')
       WITH CHECK (bucket_id = 'comprovantes-financeiro');
   END IF;
 END $$;
 
 DO $$ BEGIN
-  IF NOT EXISTS (SELECT 1 FROM storage.policies WHERE name = 'authenticated_upload_read' AND bucket_id = 'anexos-castanhas') THEN
-    CREATE POLICY authenticated_upload_read ON storage.objects FOR ALL TO authenticated
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'authenticated_upload_read_anexos' AND tablename = 'objects' AND schemaname = 'storage') THEN
+    CREATE POLICY authenticated_upload_read_anexos ON storage.objects FOR ALL TO authenticated
       USING (bucket_id = 'anexos-castanhas')
       WITH CHECK (bucket_id = 'anexos-castanhas');
   END IF;

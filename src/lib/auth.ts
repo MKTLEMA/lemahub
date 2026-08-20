@@ -1,10 +1,3 @@
-/**
- * AUTENTICACAO — Supabase Auth.
- *
- * Sessao gerenciada pelo Supabase SDK (cookies + refresh token).
- * Perfis/papeis ficam na tabela `perfis` vinculada a auth.users.
- */
-
 import { supabase } from "./supabase";
 
 export type Role = "admin" | "editor" | "leitor";

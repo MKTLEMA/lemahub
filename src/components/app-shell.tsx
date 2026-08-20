@@ -1,35 +1,31 @@
-import { Link, useRouter, useRouterState } from "@tanstack/react-router";
-
-import {
-  Bell,
-  CalendarDays,
-  ChevronLeft,
-  History,
-  LayoutDashboard,
-  LogOut,
-  Menu,
-  Package,
-  Pen,
-  CupSoda,
-  Shirt,
-  TrendingUp,
-  Receipt,
-  Search,
-  Shield,
-  User,
-  Users,
-} from "lucide-react";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useRouter, useRouterState } from "@tanstack/react-router";
+import { Link } from "@tanstack/react-router";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { ProximityDot } from "@/components/proximity-dot";
 import { BrandLogo, BrandSymbol } from "@/components/brand";
+import { ChevronLeft, User, Shield, LogOut, Search } from "lucide-react";
 import { calcularAlertas } from "@/lib/alerts";
 import { useDb } from "@/lib/store";
 import * as auth from "@/lib/auth";
 import { cn } from "@/lib/utils";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import {
+  LayoutDashboard,
+  Bell,
+  Users,
+  Package,
+  Receipt,
+  CalendarDays,
+  TrendingUp,
+  Shirt,
+  Pen,
+  CupSoda,
+  History,
+} from "lucide-react";
 
 const NAV = [
   { to: "/", label: "Visão geral", icon: LayoutDashboard },
@@ -48,12 +44,12 @@ const NAV = [
 export function AppShell({ children }: { children: ReactNode }) {
   const db = useDb();
   const router = useRouter();
+  const { location } = useRouterState();
+  const pathname = location.pathname;
   const alertas = useMemo(() => calcularAlertas(db), [db]);
   const [collapsed, setCollapsed] = useState(false);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [busca, setBusca] = useState("");
-  const pathname = useRouterState({ select: (s) => s.location.pathname });
-
   const [avisado, setAvisado] = useState(false);
   const [nome, setNome] = useState("");
   const [authChecked, setAuthChecked] = useState(false);
@@ -141,18 +137,18 @@ export function AppShell({ children }: { children: ReactNode }) {
             className="text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
             onClick={() => setCollapsed((c) => !c)}
           >
-            <ChevronLeft className={cn("size-4 transition-transform", collapsed && "rotate-180")} />
+            <ChevronLeft className="size-4 transition-transform" />
           </Button>
         </div>
 
         <nav className="flex flex-1 flex-col gap-1 px-2 py-2">
-          {NAV.map(({ to, label, icon: Icon }) => {
-            const active = to === "/" ? pathname === "/" : pathname.startsWith(to);
+          {NAV.map((item) => {
+            const active = item.to === "/" ? pathname === "/" : pathname.startsWith(item.to);
+            const Icon = item.icon;
             return (
-              <Link
-                key={to}
-                to={to}
-                title={label}
+              <a
+                key={item.to}
+                href={item.to}
                 className={cn(
                   "group flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors",
                   active
@@ -162,7 +158,7 @@ export function AppShell({ children }: { children: ReactNode }) {
               >
                 <span className="relative">
                   <Icon className="size-4 shrink-0" />
-                  {to === "/alertas" && badge > 0 && (
+                  {item.to === "/alertas" && badge > 0 && (
                     <span
                       className={cn(
                         "absolute -right-1.5 -top-1.5 size-2 rounded-full",
@@ -172,13 +168,13 @@ export function AppShell({ children }: { children: ReactNode }) {
                     />
                   )}
                 </span>
-                {!collapsed && <span className="truncate">{label}</span>}
-                {!collapsed && to === "/alertas" && badge > 0 && (
+                {!collapsed && <span className="truncate">{item.label}</span>}
+                {!collapsed && item.to === "/alertas" && badge > 0 && (
                   <span className="ml-auto rounded-full bg-sidebar-primary px-2 py-0.5 text-xs font-semibold text-sidebar-primary-foreground">
                     {badge}
                   </span>
                 )}
-              </Link>
+              </a>
             );
           })}
         </nav>
@@ -254,21 +250,12 @@ export function AppShell({ children }: { children: ReactNode }) {
           </div>
 
           <div className="ml-auto flex items-center gap-1">
-            <Button
-              variant="ghost"
-              size="icon"
-              aria-label="Abrir navegação"
-              className="md:hidden text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
-              onClick={() => setMobileNavOpen(true)}
-            >
-              <Menu className="size-4" />
-            </Button>
-            <Link to="/alertas" className="mr-1 hidden sm:block">
+            <a href="/alertas" className="mr-1 hidden sm:block">
               <span className="inline-flex items-center gap-2 rounded-full border border-border px-3 py-1.5 text-xs">
                 <ProximityDot severidade={pior as never} />
                 {badge} alerta(s)
               </span>
-            </Link>
+            </a>
             <ThemeToggle />
             <span className="ml-1 hidden items-center gap-2 sm:flex">
               <span className="flex size-7 items-center justify-center rounded-full bg-primary text-xs font-semibold text-primary-foreground">
@@ -279,88 +266,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           </div>
         </header>
 
-        {/* Mobile navigation drawer */}
-        {mobileNavOpen && (
-          <aside
-            className={cn(
-              "fixed inset-0 z-50 bg-sidebar/98 transition-colors left-full min-h-screen flex flex-col pt-6 pb-8 pr-6 text-sidebar-foreground",
-              "opacity-0 pointer-events-none",
-              mobileNavOpen && "opacity-1 pointer-events-auto transition-transform duration-300",
-              "-translate-x-0 md:translate-x-full",
-            )}
-            onClick={() => setMobileNavOpen(false)}
-          >
-            <Button
-              variant="ghost"
-              size="icon"
-              aria-label="Fechar navegação"
-              className="absolute top-4 right-4"
-              onClick={() => setMobileNavOpen(false)}
-            >
-              <ChevronLeft className="size-4" />
-            </Button>
-            <BrandLogo tone="white" className="mb-6 w-16 h-16 block mx-auto" />
-            <nav className="flex flex-col gap-4 mb-auto">
-              {NAV.map(({ to, label, icon: Icon }) => {
-                const active = to === "/" ? pathname === "/" : pathname.startsWith(to);
-                return (
-                  <Link
-                    key={to}
-                    to={to}
-                    className={cn(
-                      "flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors",
-                      active
-                        ? "bg-sidebar-accent font-medium text-sidebar-accent-foreground"
-                        : "text-sidebar-foreground hover:bg-sidebar-accent/60 hover:text-sidebar-accent-foreground",
-                    )}
-                  >
-                    <Icon className="size-4 shrink-0" />
-                    <span className="truncate">{label}</span>
-                  </Link>
-                );
-              })}
-            </nav>
-            <div className="mt-auto flex flex-col gap-2 px-2">
-              <Link
-                to="/perfil"
-                className={cn(
-                  "flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors",
-                  pathname === "/perfil"
-                    ? "bg-sidebar-accent font-medium text-sidebar-accent-foreground"
-                    : "text-sidebar-foreground/80 hover:bg-sidebar-accent/60 hover:text-sidebar-accent-foreground",
-                )}
-              >
-                <User className="size-4 shrink-0" />
-                Perfil
-              </Link>
-              <Link
-                to="/admin"
-                className={cn(
-                  "flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors",
-                  pathname === "/admin"
-                    ? "bg-sidebar-accent font-medium text-sidebar-accent-foreground"
-                    : "text-sidebar-foreground/80 hover:bg-sidebar-accent/60 hover:text-sidebar-accent-foreground",
-                )}
-              >
-                <Shield className="size-4 shrink-0" />
-                Admin
-              </Link>
-              <button
-                type="button"
-                title="Sair"
-                onClick={async () => {
-                  await auth.logout();
-                  await router.invalidate();
-                  await router.navigate({ to: "/login", replace: true });
-                }}
-                className="flex items-center gap-3 rounded-lg px-3 py-2 text-left text-sm text-sidebar-foreground/80 transition-colors hover:bg-sidebar-accent/60 hover:text-sidebar-accent-foreground"
-              >
-                <LogOut className="size-4 shrink-0" />
-                Sair
-              </button>
-            </div>
-          </aside>
-        )}
+        <main className="flex-1 px-4 py-6 md:px-6">{children}</main>
       </div>
     </div>
   );

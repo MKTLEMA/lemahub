@@ -24,6 +24,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { ProximityDot } from "@/components/proximity-dot";
+import { BrandLogo, BrandSymbol } from "@/components/brand";
 import { calcularAlertas } from "@/lib/alerts";
 import { useDb } from "@/lib/store";
 import * as auth from "@/lib/auth";
@@ -130,11 +131,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         )}
       >
         <div className="flex h-16 items-center justify-between px-4">
-          {!collapsed && (
-            <span className="font-display text-lg font-bold tracking-tight text-sidebar-accent-foreground">
-              LEMA<span className="text-sidebar-primary">.</span>hub
-            </span>
-          )}
+          {!collapsed ? <BrandLogo tone="white" /> : <BrandSymbol tone="white" />}
           <Button
             variant="ghost"
             size="icon"

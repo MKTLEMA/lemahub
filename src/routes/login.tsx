@@ -12,6 +12,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { BrandLogo } from "@/components/brand";
 import { supabase } from "@/lib/supabase";
 import * as auth from "@/lib/auth";
 
@@ -90,10 +91,8 @@ function LoginPage() {
         onSubmit={onSubmit}
         className="animate-rise w-full max-w-sm rounded-xl border border-border bg-card p-6 shadow-sm"
       >
-        <div className="mb-6 text-center">
-          <span className="font-display text-2xl font-bold tracking-tight">
-            LEMA<span className="text-accent">.</span>hub
-          </span>
+        <div className="mb-6 flex flex-col items-center text-center">
+          <BrandLogo className="mb-2" />
           <p className="mt-1 text-sm text-muted-foreground">
             Acesso restrito à equipe de marketing.
           </p>

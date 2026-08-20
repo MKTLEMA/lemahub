@@ -20,8 +20,10 @@ import { ModuleHeader, RowActions } from "@/components/module-page";
 import { EntityForm, iniciais, type FieldSpec, type FormValues } from "@/components/entity-form";
 import { HistoricoDialog } from "@/components/historico-dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { CalendarBoard } from "@/components/calendar-board";
+import { CalendarBoard, type CalendarModo } from "@/components/calendar-board";
+import { CalendarModeToggle } from "@/components/calendar-mode-toggle";
 import { ColaboradorCard } from "@/components/colaborador-card";
+import { EventoCard } from "@/components/evento-card";
 import { ProximityDot } from "@/components/proximity-dot";
 import { deleteRow, insertRow, updateRow, useDb } from "@/lib/store";
 import { diasAteAniversario } from "@/lib/alerts";
@@ -33,7 +35,7 @@ import {
   type SortConfig,
   type SortOption,
 } from "@/components/sort-controls";
-import type { Colaborador } from "@/lib/types";
+import type { Colaborador, Evento } from "@/lib/types";
 
 export const Route = createFileRoute("/colaboradores")({
   head: () => ({
@@ -108,6 +110,8 @@ function ColaboradoresPage() {
   const [editando, setEditando] = useState<Colaborador | null>(null);
   const [historicoId, setHistoricoId] = useState<string | null>(null);
   const [detalhe, setDetalhe] = useState<Colaborador | null>(null);
+  const [detalheEvento, setDetalheEvento] = useState<Evento | null>(null);
+  const [modo, setModo] = useState<CalendarModo>("aniversarios");
   const [cursor, setCursor] = useState(() => {
     const h = new Date();
     return new Date(h.getFullYear(), h.getMonth(), 1);
@@ -300,11 +304,19 @@ function ColaboradoresPage() {
         </TabsList>
 
         <TabsContent value="calendario">
+          <div className="mb-3 flex flex-wrap items-center gap-2">
+            <CalendarModeToggle value={modo} onValueChange={setModo} />
+          </div>
           <CalendarBoard
-            modo="aniversarios"
+            modo={modo}
             cursor={cursor}
             onCursor={setCursor}
+            eventos={db.eventos}
             aniversariantes={rows}
+            onPickEvento={(id) => {
+              const e = db.eventos.find((x) => x.id === id);
+              if (e) setDetalheEvento(e);
+            }}
             onPickAniversariante={(id) =>
               setDetalhe(db.colaboradores.find((c) => c.id === id) ?? null)
             }
@@ -422,6 +434,7 @@ function ColaboradoresPage() {
       />
 
       <ColaboradorCard colaborador={detalhe} onOpenChange={() => setDetalhe(null)} />
+      <EventoCard evento={detalheEvento} onOpenChange={(o) => !o && setDetalheEvento(null)} />
 
       <HistoricoDialog registroId={historicoId} onOpenChange={() => setHistoricoId(null)} />
     </>

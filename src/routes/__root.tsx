@@ -109,7 +109,19 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
         rel: "stylesheet",
         href: "https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Poppins:wght@600;700&display=swap",
       },
-      { rel: "icon", href: "/favicon.ico", type: "image/x-icon" },
+      {
+        rel: "icon",
+        type: "image/png",
+        href: "/simbolo.png",
+        media: "(prefers-color-scheme: light)",
+      },
+      {
+        rel: "icon",
+        type: "image/png",
+        href: "/simbolo-branca.png",
+        media: "(prefers-color-scheme: dark)",
+      },
+      { rel: "apple-touch-icon", href: "/simbolo.png" },
     ],
   }),
   beforeLoad: async ({ location }) => {
@@ -140,22 +152,38 @@ function RootShell({ children }: { children: ReactNode }) {
   );
 }
 
+function ThemeInit() {
+  useEffect(() => {
+    if (import.meta.env.SSR) return;
+    const stored = localStorage.getItem("lema-theme");
+    if (stored === "dark" || stored === "light") {
+      document.documentElement.classList.toggle("dark", stored === "dark");
+    } else if (window.matchMedia("(prefers-color-scheme: dark)").matches) {
+      document.documentElement.classList.add("dark");
+    }
+  }, []);
+  return null;
+}
+
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const isPublic = PUBLIC_ROUTES.includes(pathname);
 
   return (
-    <QueryClientProvider client={queryClient}>
-      {isPublic ? (
-        <Outlet />
-      ) : (
-        <AppShell>
-          {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
+    <>
+      <ThemeInit />
+      <QueryClientProvider client={queryClient}>
+        {isPublic ? (
           <Outlet />
-        </AppShell>
-      )}
-      <Toaster richColors position="top-right" />
-    </QueryClientProvider>
+        ) : (
+          <AppShell>
+            {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
+            <Outlet />
+          </AppShell>
+        )}
+        <Toaster richColors position="top-right" />
+      </QueryClientProvider>
+    </>
   );
 }

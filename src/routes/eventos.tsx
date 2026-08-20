@@ -2,14 +2,6 @@ import { createFileRoute, useLocation, useRouter } from "@tanstack/react-router"
 import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Megaphone } from "lucide-react";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -26,8 +18,9 @@ import {
   type SortConfig,
   type SortOption,
 } from "@/components/sort-controls";
-import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { CalendarBoard, type CalendarModo } from "@/components/calendar-board";
+import { CalendarModeToggle } from "@/components/calendar-mode-toggle";
+import { EventoCard } from "@/components/evento-card";
 import type { Evento } from "@/lib/types";
 
 export const Route = createFileRoute("/eventos")({
@@ -99,6 +92,23 @@ function PromoBadge() {
   );
 }
 
+const br = (d: string) => (d ? d.split("-").reverse().join("/") : "");
+
+function parseDate(iso: string): Date | null {
+  const [y, m, d] = iso.split("-").map(Number);
+  if (!y || !m || !d) return null;
+  return new Date(y, m - 1, d);
+}
+
+function getWeekEnd(d: Date): Date {
+  const end = new Date(d);
+  const day = end.getDay();
+  const diff = day === 0 ? 0 : 7 - day;
+  end.setDate(end.getDate() + diff);
+  end.setHours(23, 59, 59, 999);
+  return end;
+}
+
 function EventosPage() {
   const db = useDb();
   const [busca, setBusca] = useState("");
@@ -115,7 +125,8 @@ function EventosPage() {
   });
   const [destaque, setDestaque] = useState<string | null>(null);
   const [tab, setTab] = useState("lista");
-  const rowRefs = useRef<Record<string, HTMLTableRowElement | null>>({});
+  const [detalhe, setDetalhe] = useState<Evento | null>(null);
+  const rowRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
   useEffect(() => {
     if (!stateDestaque) return;
@@ -149,6 +160,61 @@ function EventosPage() {
       (e, f) => (e as unknown as Record<string, string | number | null>)[f],
     );
   }, [db.eventos, busca, sort]);
+
+  const hojeInicio = new Date(hoje.getFullYear(), hoje.getMonth(), hoje.getDate());
+  const semanaFim = getWeekEnd(hoje);
+  const mesInicio = new Date(hoje.getFullYear(), hoje.getMonth(), 1);
+  const mesFim = new Date(hoje.getFullYear(), hoje.getMonth() + 1, 0);
+
+  const colunas: { titulo: string; filtro: (e: Evento) => boolean }[] = useMemo(
+    () => [
+      {
+        titulo: "Hoje",
+        filtro: (e) => {
+          const dt = parseDate(e.data_inicio);
+          if (!dt) return false;
+          return dt.getTime() === hojeInicio.getTime();
+        },
+      },
+      {
+        titulo: "Essa semana",
+        filtro: (e) => {
+          const dt = parseDate(e.data_inicio);
+          if (!dt) return false;
+          return dt > hojeInicio && dt <= semanaFim;
+        },
+      },
+      {
+        titulo: "Esse mês",
+        filtro: (e) => {
+          const dt = parseDate(e.data_inicio);
+          if (!dt) return false;
+          return (
+            dt > semanaFim &&
+            dt.getMonth() === hoje.getMonth() &&
+            dt.getFullYear() === hoje.getFullYear()
+          );
+        },
+      },
+      {
+        titulo: "Próximos meses",
+        filtro: (e) => {
+          const dt = parseDate(e.data_inicio);
+          if (!dt) return false;
+          return dt > mesFim;
+        },
+      },
+      {
+        titulo: "Encerrados",
+        filtro: (e) => {
+          const dt = parseDate(e.data_inicio);
+          if (!dt) return false;
+          return dt < hojeInicio;
+        },
+      },
+    ],
+    [hojeInicio, semanaFim, mesFim, hoje],
+  );
 
   const abrirNovo = (dataInicio?: string) => {
     setEditando(null);
@@ -212,109 +278,161 @@ function EventosPage() {
 
       <Tabs value={tab} onValueChange={setTab} className="animate-rise">
         <TabsList className="mb-4">
-          <TabsTrigger value="lista">Lista</TabsTrigger>
-          <TabsTrigger value="calendario">Calendário</TabsTrigger>
+          <TabsTrigger
+            value="lista"
+            className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground transition-colors hover:bg-accent/10"
+          >
+            Lista
+          </TabsTrigger>
+          <TabsTrigger
+            value="kanban"
+            className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground transition-colors hover:bg-accent/10"
+          >
+            Kanban
+          </TabsTrigger>
+          <TabsTrigger
+            value="calendario"
+            className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground transition-colors hover:bg-accent/10"
+          >
+            Calendário
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="lista">
-          <div className="overflow-hidden rounded-xl border border-border bg-card">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Evento</TableHead>
-                  <TableHead>Local</TableHead>
-                  <TableHead className="tabular-nums">Início</TableHead>
-                  <TableHead className="tabular-nums">Fim</TableHead>
-                  <TableHead>Participantes</TableHead>
-                  <TableHead>Materiais</TableHead>
-                  <TableHead className="w-12" />
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {rows.map((e) => {
-                  const dias = diasAte(e.data_inicio);
-                  const sev = dias !== null && dias >= 0 && dias <= 3 ? "alerta" : "ok";
-                  return (
-                    <TableRow
-                      key={e.id}
-                      ref={(node) => {
-                        rowRefs.current[e.id] = node;
-                      }}
-                      className={
-                        destaque === e.id
-                          ? "animate-rise bg-accent/10 ring-2 ring-accent"
-                          : "animate-rise"
-                      }
-                    >
-                      <TableCell className="font-medium">
-                        <span className="flex flex-wrap items-center gap-2">
-                          <ProximityDot severidade={sev} label={e.nome} />
-                          {e.acao_promocional ? <PromoBadge /> : null}
-                        </span>
-                        <span className="block pl-[18px] text-xs text-muted-foreground">
-                          {e.associacao_relacionada}
-                        </span>
-                      </TableCell>
-                      <TableCell>
-                        {e.local}
-                        <span className="block text-xs text-muted-foreground">
-                          {e.cidade ? `${e.cidade}/${e.estado ?? ""}` : e.local ? "" : "—"}
-                        </span>
-                      </TableCell>
-                      <TableCell className="tabular-nums">
-                        {e.data_inicio ? e.data_inicio.split("-").reverse().join("/") : "—"}
-                      </TableCell>
-                      <TableCell className="tabular-nums">
-                        {e.data_fim ? e.data_fim.split("-").reverse().join("/") : "—"}
-                      </TableCell>
-                      <TableCell className="max-w-40 truncate">
-                        {e.participantes.join(", ") || "—"}
-                      </TableCell>
-                      <TableCell className="max-w-40 truncate">
-                        {e.materiais.join(", ") || "—"}
-                      </TableCell>
-                      <TableCell>
-                        <RowActions
-                          onEditar={() => {
-                            setNovoInicial(undefined);
-                            setEditando(e);
-                            setOpen(true);
-                          }}
-                          onHistorico={() => setHistoricoId(e.id)}
-                          onExcluir={() => {
-                            deleteRow("eventos", e.id);
-                            toast.success("Evento excluído.");
-                          }}
-                        />
-                      </TableCell>
-                    </TableRow>
-                  );
-                })}
-                {rows.length === 0 && (
-                  <TableRow>
-                    <TableCell colSpan={7} className="py-10 text-center text-muted-foreground">
-                      Nenhum evento encontrado.
-                    </TableCell>
-                  </TableRow>
-                )}
-              </TableBody>
-            </Table>
+          <div className="space-y-3">
+            {rows.map((e) => {
+              const dias = diasAte(e.data_inicio);
+              const sev = dias !== null && dias >= 0 && dias <= 3 ? "alerta" : "ok";
+              return (
+                <div
+                  key={e.id}
+                  ref={(node) => {
+                    rowRefs.current[e.id] = node;
+                  }}
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => setDetalhe(e)}
+                  onKeyDown={(ev) => {
+                    if (ev.key === "Enter") setDetalhe(e);
+                  }}
+                  className={`animate-rise cursor-pointer rounded-xl border border-border bg-card p-4 transition-shadow hover:shadow-md ${
+                    destaque === e.id ? "ring-2 ring-accent bg-accent/10" : ""
+                  }`}
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <ProximityDot severidade={sev} label={e.nome} />
+                        {e.acao_promocional ? <PromoBadge /> : null}
+                      </div>
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        {e.associacao_relacionada && `${e.associacao_relacionada} · `}
+                        {e.cidade ? `${e.cidade}/${e.estado ?? ""}` : e.local || ""}
+                      </p>
+                      <p className="mt-1 text-sm font-medium">
+                        {br(e.data_inicio)}
+                        {e.data_fim ? ` – ${br(e.data_fim)}` : ""}
+                      </p>
+                      {e.participantes.length > 0 && (
+                        <p className="mt-1 text-xs text-muted-foreground">
+                          <span className="font-medium text-foreground">Quem vai:</span>{" "}
+                          {e.participantes.join(", ")}
+                        </p>
+                      )}
+                      {e.materiais.length > 0 && (
+                        <p className="mt-1 text-xs text-muted-foreground">
+                          <span className="font-medium text-foreground">Materiais:</span>{" "}
+                          {e.materiais.join(", ")}
+                        </p>
+                      )}
+                    </div>
+                    <div onClick={(ev) => ev.stopPropagation()}>
+                      <RowActions
+                        onEditar={() => {
+                          setNovoInicial(undefined);
+                          setEditando(e);
+                          setOpen(true);
+                        }}
+                        onHistorico={() => setHistoricoId(e.id)}
+                        onExcluir={() => {
+                          deleteRow("eventos", e.id);
+                          toast.success("Evento excluído.");
+                        }}
+                      />
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+            {rows.length === 0 && (
+              <div className="rounded-xl border border-border bg-card py-10 text-center text-muted-foreground">
+                Nenhum evento encontrado.
+              </div>
+            )}
+          </div>
+        </TabsContent>
+
+        <TabsContent value="kanban">
+          <div className="overflow-x-auto pb-2">
+            <div className="flex gap-4" style={{ minWidth: "max-content" }}>
+              {colunas.map(({ titulo, filtro }) => {
+                const itens = rows.filter(filtro);
+                return (
+                  <div key={titulo} className="w-72 shrink-0">
+                    <div className="mb-3 flex items-center gap-2">
+                      <h3 className="text-sm font-semibold text-foreground">{titulo}</h3>
+                      <span className="rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">
+                        {itens.length}
+                      </span>
+                    </div>
+                    <div className="space-y-3">
+                      {itens.map((e) => {
+                        const dias = diasAte(e.data_inicio);
+                        const sev = dias !== null && dias >= 0 && dias <= 3 ? "alerta" : "ok";
+                        return (
+                          <div
+                            key={e.id}
+                            role="button"
+                            tabIndex={0}
+                            onClick={() => setDetalhe(e)}
+                            onKeyDown={(ev) => {
+                              if (ev.key === "Enter") setDetalhe(e);
+                            }}
+                            className="cursor-pointer rounded-xl border border-border bg-card p-3 transition-shadow hover:shadow-md"
+                          >
+                            <div className="flex items-center gap-2">
+                              <ProximityDot severidade={sev} />
+                              {e.acao_promocional ? <PromoBadge /> : null}
+                            </div>
+                            <p className="mt-1 text-sm font-medium">{e.nome}</p>
+                            <p className="mt-0.5 text-xs text-muted-foreground">
+                              {br(e.data_inicio)}
+                              {e.data_fim ? ` – ${br(e.data_fim)}` : ""}
+                            </p>
+                            {e.participantes.length > 0 && (
+                              <p className="mt-1 text-xs text-muted-foreground truncate">
+                                {e.participantes.join(", ")}
+                              </p>
+                            )}
+                          </div>
+                        );
+                      })}
+                      {itens.length === 0 && (
+                        <div className="rounded-xl border border-dashed border-border py-6 text-center text-xs text-muted-foreground">
+                          Nenhum evento
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
           </div>
         </TabsContent>
 
         <TabsContent value="calendario">
           <div className="mb-3 flex flex-wrap items-center gap-2">
-            <ToggleGroup
-              type="single"
-              value={modo}
-              onValueChange={(v) => v && setModo(v as CalendarModo)}
-              variant="outline"
-              size="sm"
-            >
-              <ToggleGroupItem value="eventos">Eventos</ToggleGroupItem>
-              <ToggleGroupItem value="aniversarios">Aniversários</ToggleGroupItem>
-              <ToggleGroupItem value="ambos">Ambos</ToggleGroupItem>
-            </ToggleGroup>
+            <CalendarModeToggle value={modo} onValueChange={setModo} />
           </div>
           <CalendarBoard
             modo={modo}
@@ -326,14 +444,22 @@ function EventosPage() {
             onPickDate={(iso) => abrirNovo(iso)}
             onPickEvento={(id) => {
               const e = db.eventos.find((x) => x.id === id);
-              if (!e) return;
-              setNovoInicial(undefined);
-              setEditando(e);
-              setOpen(true);
+              if (e) setDetalhe(e);
             }}
           />
         </TabsContent>
       </Tabs>
+
+      <EventoCard
+        evento={detalhe}
+        onOpenChange={(o) => !o && setDetalhe(null)}
+        onEditar={(e) => {
+          setDetalhe(null);
+          setNovoInicial(undefined);
+          setEditando(e);
+          setOpen(true);
+        }}
+      />
 
       <EntityForm
         open={open}

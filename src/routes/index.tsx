@@ -1,12 +1,14 @@
 import { createFileRoute, Link, useRouter } from "@tanstack/react-router";
 import { CalendarDays, Package, Receipt, Users } from "lucide-react";
 import { useMemo, useState } from "react";
-import { CalendarBoard } from "@/components/calendar-board";
+import { CalendarBoard, type CalendarModo } from "@/components/calendar-board";
+import { CalendarModeToggle } from "@/components/calendar-mode-toggle";
 import { ColaboradorCard } from "@/components/colaborador-card";
+import { EventoCard } from "@/components/evento-card";
 import { ProximityDot } from "@/components/proximity-dot";
 import { calcularAlertas, diasAte, diasAteAniversario } from "@/lib/alerts";
 import { useDb } from "@/lib/store";
-import { LABELS, type Colaborador } from "@/lib/types";
+import { LABELS, type Colaborador, type Evento } from "@/lib/types";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -31,6 +33,8 @@ function Home() {
   const db = useDb();
   const router = useRouter();
   const [detalhe, setDetalhe] = useState<Colaborador | null>(null);
+  const [detalheEvento, setDetalheEvento] = useState<Evento | null>(null);
+  const [modo, setModo] = useState<CalendarModo>("ambos");
   const alertas = useMemo(() => calcularAlertas(db), [db]);
   const [cursor, setCursor] = useState(() => {
     const h = new Date();
@@ -114,15 +118,19 @@ function Home() {
 
       <div className="grid gap-6 lg:grid-cols-2">
         <section className="animate-rise">
+          <div className="mb-3 flex flex-wrap items-center gap-2">
+            <CalendarModeToggle value={modo} onValueChange={setModo} />
+          </div>
           <CalendarBoard
             compact
-            modo="ambos"
+            modo={modo}
             cursor={cursor}
             onCursor={setCursor}
             eventos={db.eventos}
             aniversariantes={db.colaboradores}
             onPickEvento={(id) => {
-              void router.navigate({ to: "/eventos", state: { destacarEventoId: id } as never });
+              const e = db.eventos.find((x) => x.id === id);
+              if (e) setDetalheEvento(e);
             }}
             onPickAniversariante={(id) =>
               setDetalhe(db.colaboradores.find((c) => c.id === id) ?? null)
@@ -160,6 +168,7 @@ function Home() {
       </div>
 
       <ColaboradorCard colaborador={detalhe} onOpenChange={(o) => !o && setDetalhe(null)} />
+      <EventoCard evento={detalheEvento} onOpenChange={(o) => !o && setDetalheEvento(null)} />
     </>
   );
 }

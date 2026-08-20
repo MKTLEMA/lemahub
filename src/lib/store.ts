@@ -151,6 +151,8 @@ async function refetch(t: TabelaNome) {
   }
 }
 
+export type ResultadoOperacao = { ok: true } | { ok: false; erro: string };
+
 export function currentUser(): string {
   return "Equipe LEMA";
 }
@@ -178,14 +180,16 @@ function log(entry: Omit<HistoricoEdicao, "id" | "timestamp" | "usuario_nome">) 
 export async function insertRow<T extends TabelaNome>(
   tabela: T,
   values: Omit<DBShape[T][number], "id" | "created_at" | "updated_at">,
-) {
+): Promise<ResultadoOperacao> {
   const now = new Date().toISOString();
   const row = { ...values, id: uid(), created_at: now, updated_at: now };
   const { error } = await supabase.from(tabela).insert(row);
   if (error) {
     console.error("insertRow error:", error.message);
-    return;
+    return { ok: false, erro: error.message };
   }
+  const tableRows = db[tabela] as Row[];
+  setDb({ [tabela]: [row as DBShape[T][number], ...tableRows] } as Partial<DBShape>);
   log({
     tabela,
     registro_id: (row as Row).id,
@@ -194,13 +198,14 @@ export async function insertRow<T extends TabelaNome>(
     valor_anterior: null,
     valor_novo: null,
   });
+  return { ok: true };
 }
 
 export async function updateRow<T extends TabelaNome>(
   tabela: T,
   id: string,
   values: Partial<DBShape[T][number]>,
-) {
+): Promise<ResultadoOperacao> {
   const rows = db[tabela] as unknown as Record<string, unknown>[];
   const prev = rows.find((r) => r["id"] === id);
   if (prev) {
@@ -223,10 +228,24 @@ export async function updateRow<T extends TabelaNome>(
     .eq("id", id);
   if (error) {
     console.error("updateRow error:", error.message);
+    return { ok: false, erro: error.message };
   }
+  const tableRows = db[tabela] as Record<string, unknown>[];
+  const updated = tableRows.map((r) =>
+    r["id"] === id ? { ...r, ...values, updated_at: new Date().toISOString() } : r,
+  );
+  setDb({ [tabela]: updated as DBShape[T] });
+  return { ok: true };
 }
 
-export async function deleteRow(tabela: TabelaNome, id: string) {
+export async function deleteRow(tabela: TabelaNome, id: string): Promise<ResultadoOperacao> {
+  const { error } = await supabase.from(tabela).delete().eq("id", id);
+  if (error) {
+    console.error("deleteRow error:", error.message);
+    return { ok: false, erro: error.message };
+  }
+  const tableRows = db[tabela] as Row[];
+  setDb({ [tabela]: tableRows.filter((r) => r.id !== id) as DBShape[TabelaNome] });
   log({
     tabela,
     registro_id: id,
@@ -235,10 +254,7 @@ export async function deleteRow(tabela: TabelaNome, id: string) {
     valor_anterior: null,
     valor_novo: null,
   });
-  const { error } = await supabase.from(tabela).delete().eq("id", id);
-  if (error) {
-    console.error("deleteRow error:", error.message);
-  }
+  return { ok: true };
 }
 
 // Auto-hydrate on import (client-side only)

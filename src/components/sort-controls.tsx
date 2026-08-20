@@ -7,6 +7,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { TableHead } from "@/components/ui/table";
+import { cn } from "@/lib/utils";
 
 export type SortConfig = {
   field: string;
@@ -94,5 +96,51 @@ export function SortControls({
         )}
       </Button>
     </div>
+  );
+}
+
+export function SortableHeader({
+  option,
+  value,
+  onChange,
+  className,
+}: {
+  option: SortOption;
+  value: SortConfig | null;
+  onChange: (v: SortConfig | null) => void;
+  className?: string;
+}) {
+  const active = value?.field === option.value;
+  const dir = active ? value!.direction : null;
+
+  const cycle = () => {
+    if (!active) {
+      onChange({ field: option.value, direction: "asc" });
+    } else if (dir === "asc") {
+      onChange({ field: option.value, direction: "desc" });
+    } else {
+      onChange(null);
+    }
+  };
+
+  return (
+    <TableHead className={cn("cursor-pointer select-none hover:bg-muted/50", className)}>
+      <button
+        type="button"
+        className="inline-flex items-center gap-1 -ml-1 px-1 py-0.5 rounded"
+        onClick={cycle}
+      >
+        {option.label}
+        {active ? (
+          dir === "asc" ? (
+            <ArrowUp className="size-3.5" />
+          ) : (
+            <ArrowDown className="size-3.5" />
+          )
+        ) : (
+          <ArrowUpDown className="size-3.5 text-muted-foreground/50" />
+        )}
+      </button>
+    </TableHead>
   );
 }

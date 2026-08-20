@@ -354,9 +354,13 @@ function EventosPage() {
                           setOpen(true);
                         }}
                         onHistorico={() => setHistoricoId(e.id)}
-                        onExcluir={() => {
-                          deleteRow("eventos", e.id);
-                          toast.success("Evento excluído.");
+                        onExcluir={async () => {
+                          const res = await deleteRow("eventos", e.id);
+                          if (res.ok) {
+                            toast.success("Evento excluído.");
+                          } else {
+                            toast.error(res.erro);
+                          }
                         }}
                       />
                     </div>
@@ -468,13 +472,21 @@ function EventosPage() {
         description="Participantes e materiais aceitam vários itens separados por vírgula."
         fields={FIELDS}
         initial={editando ? (editando as unknown as FormValues) : novoInicial}
-        onSubmit={(values) => {
+        onSubmit={async (values) => {
           if (editando) {
-            updateRow("eventos", editando.id, values as Partial<Evento>);
-            toast.success("Evento atualizado.");
+            const r = await updateRow("eventos", editando.id, values as Partial<Evento>);
+            if (r.ok) {
+              toast.success("Evento atualizado.");
+            } else {
+              toast.error(r.erro);
+            }
           } else {
-            insertRow("eventos", values as never);
-            toast.success("Evento criado.");
+            const r = await insertRow("eventos", values as never);
+            if (r.ok) {
+              toast.success("Evento criado.");
+            } else {
+              toast.error(r.erro);
+            }
           }
         }}
       />

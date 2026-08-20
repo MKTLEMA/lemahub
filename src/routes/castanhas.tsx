@@ -21,7 +21,7 @@ import { diasAte, severidadePorDias } from "@/lib/alerts";
 import { exportCsv } from "@/lib/csv";
 import { cn } from "@/lib/utils";
 import {
-  SortControls,
+  SortableHeader,
   applySort,
   type SortConfig,
   type SortOption,
@@ -155,18 +155,28 @@ function CastanhasPage() {
           });
           toast.success(`${total} compra(s) importada(s).`);
         }}
-        extra={<SortControls options={SORT_OPTS} value={sort} onChange={setSort} />}
+        extra={null}
       />
 
       <div className="animate-rise overflow-hidden rounded-xl border border-border bg-card">
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Fornecedor</TableHead>
-              <TableHead>Finalidade</TableHead>
-              <TableHead>Solicitante</TableHead>
-              <TableHead className="tabular-nums">Valor</TableHead>
-              <TableHead className="tabular-nums">Prazo</TableHead>
+              <SortableHeader option={SORT_OPTS[0]!} value={sort} onChange={setSort} />
+              <SortableHeader option={SORT_OPTS[1]!} value={sort} onChange={setSort} />
+              <SortableHeader option={SORT_OPTS[2]!} value={sort} onChange={setSort} />
+              <SortableHeader
+                option={SORT_OPTS[3]!}
+                value={sort}
+                onChange={setSort}
+                className="tabular-nums"
+              />
+              <SortableHeader
+                option={SORT_OPTS[4]!}
+                value={sort}
+                onChange={setSort}
+                className="tabular-nums"
+              />
               <TableHead>NF</TableHead>
               <TableHead>Notas</TableHead>
               <TableHead className="w-12" />
@@ -250,9 +260,13 @@ function CastanhasPage() {
                         setOpen(true);
                       }}
                       onHistorico={() => setHistoricoId(k.id)}
-                      onExcluir={() => {
-                        deleteRow("compras_castanhas", k.id);
-                        toast.success("Compra excluída.");
+                      onExcluir={async () => {
+                        const res = await deleteRow("compras_castanhas", k.id);
+                        if (res.ok) {
+                          toast.success("Compra excluída.");
+                        } else {
+                          toast.error(res.erro);
+                        }
                       }}
                     />
                   </TableCell>
@@ -277,13 +291,28 @@ function CastanhasPage() {
         description="Registre o pedido e acompanhe as pendências de nota."
         fields={fields}
         initial={editando ? (editando as unknown as FormValues) : undefined}
-        onSubmit={(values) => {
+        onSubmit={async (values) => {
           if (editando) {
-            updateRow("compras_castanhas", editando.id, values as Partial<CompraCastanha>);
-            toast.success("Compra atualizada.");
+            const r = await updateRow(
+              "compras_castanhas",
+              editando.id,
+              values as Partial<CompraCastanha>,
+            );
+            if (r.ok) {
+              toast.success("Compra atualizada.");
+            } else {
+              toast.error(r.erro);
+            }
           } else {
-            insertRow("compras_castanhas", { ...VAZIO_CASTANHA, ...values } as never);
-            toast.success("Compra registrada.");
+            const r = await insertRow("compras_castanhas", {
+              ...VAZIO_CASTANHA,
+              ...values,
+            } as never);
+            if (r.ok) {
+              toast.success("Compra registrada.");
+            } else {
+              toast.error(r.erro);
+            }
           }
         }}
       />

@@ -106,7 +106,7 @@ export function EntityForm({
   description: string;
   fields: FieldSpec[];
   initial?: FormValues | undefined;
-  onSubmit: (values: FormValues) => void;
+  onSubmit: (values: FormValues) => void | Promise<void>;
 }) {
   const empty = () =>
     Object.fromEntries(
@@ -141,9 +141,9 @@ export function EntityForm({
 
         <form
           className="grid gap-4 px-4"
-          onSubmit={(e) => {
+          onSubmit={async (e) => {
             e.preventDefault();
-            onSubmit(values);
+            await onSubmit(values);
             onOpenChange(false);
           }}
         >

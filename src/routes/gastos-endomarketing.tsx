@@ -34,7 +34,7 @@ import { HistoricoDialog } from "@/components/historico-dialog";
 import { deleteRow, insertRow, updateRow, useDb } from "@/lib/store";
 import { exportCsv } from "@/lib/csv";
 import {
-  SortControls,
+  SortableHeader,
   applySort,
   type SortConfig,
   type SortOption,
@@ -162,7 +162,6 @@ function GastosPage() {
         onExportar={() => exportCsv("gastos-endomarketing", rows)}
         extra={
           <div className="flex flex-wrap items-center gap-2">
-            <SortControls options={SORT_OPTS} value={sort} onChange={setSort} />
             <Select value={mesRef} onValueChange={setMesRef}>
               <SelectTrigger className="w-36" aria-label="Mês de referência">
                 <SelectValue />
@@ -238,10 +237,20 @@ function GastosPage() {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Evento</TableHead>
-              <TableHead className="tabular-nums">Mês</TableHead>
-              <TableHead>Descritivo</TableHead>
-              <TableHead className="tabular-nums">Valor</TableHead>
+              <SortableHeader option={SORT_OPTS[0]!} value={sort} onChange={setSort} />
+              <SortableHeader
+                option={SORT_OPTS[1]!}
+                value={sort}
+                onChange={setSort}
+                className="tabular-nums"
+              />
+              <SortableHeader option={SORT_OPTS[2]!} value={sort} onChange={setSort} />
+              <SortableHeader
+                option={SORT_OPTS[3]!}
+                value={sort}
+                onChange={setSort}
+                className="tabular-nums"
+              />
               <TableHead className="w-12" />
             </TableRow>
           </TableHeader>
@@ -261,9 +270,13 @@ function GastosPage() {
                       setOpen(true);
                     }}
                     onHistorico={() => setHistoricoId(g.id)}
-                    onExcluir={() => {
-                      deleteRow("gastos_endomarketing", g.id);
-                      toast.success("Gasto excluído.");
+                    onExcluir={async () => {
+                      const res = await deleteRow("gastos_endomarketing", g.id);
+                      if (res.ok) {
+                        toast.success("Gasto excluído.");
+                      } else {
+                        toast.error(res.erro);
+                      }
                     }}
                   />
                 </TableCell>
@@ -287,19 +300,27 @@ function GastosPage() {
         description="O nome do evento é livre e não depende do módulo de Eventos."
         fields={FIELDS}
         initial={editando ? (editando as unknown as FormValues) : undefined}
-        onSubmit={(values) => {
+        onSubmit={async (values) => {
           const mes = String(values["mes"] ?? "");
           const normalizado = { ...values, mes: mes ? `${mes.slice(0, 7)}-01` : "" };
           if (editando) {
-            updateRow(
+            const r = await updateRow(
               "gastos_endomarketing",
               editando.id,
               normalizado as Partial<GastoEndomarketing>,
             );
-            toast.success("Gasto atualizado.");
+            if (r.ok) {
+              toast.success("Gasto atualizado.");
+            } else {
+              toast.error(r.erro);
+            }
           } else {
-            insertRow("gastos_endomarketing", normalizado as never);
-            toast.success("Gasto registrado.");
+            const r = await insertRow("gastos_endomarketing", normalizado as never);
+            if (r.ok) {
+              toast.success("Gasto registrado.");
+            } else {
+              toast.error(r.erro);
+            }
           }
         }}
       />

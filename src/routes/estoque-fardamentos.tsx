@@ -19,7 +19,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { getThresholds, setThreshold, subscribeThresholds } from "@/lib/thresholds";
 import {
-  SortControls,
+  SortableHeader,
   applySort,
   type SortConfig,
   type SortOption,
@@ -76,8 +76,11 @@ function EstoqueFardamentosPage() {
     { value: "peca", label: "Peça", type: "text" },
     { value: "tamanho", label: "Tamanho", type: "text" },
     { value: "cor", label: "Cor", type: "text" },
+    { value: "estado", label: "Estado", type: "text" },
+    { value: "modelagem", label: "Modelagem", type: "text" },
     { value: "empresa", label: "Empresa", type: "text" },
     { value: "quantidade", label: "Quantidade", type: "number" },
+    { value: "observacao", label: "Observação", type: "text" },
   ];
   const [sort, setSort] = useState<SortConfig | null>(null);
   const rows = useMemo(() => {
@@ -108,7 +111,6 @@ function EstoqueFardamentosPage() {
         }}
         extra={
           <div className="flex items-center gap-2">
-            <SortControls options={SORT_OPTS} value={sort} onChange={setSort} />
             <Label htmlFor="limite" className="whitespace-nowrap text-xs text-muted-foreground">
               Estoque baixo &le;
             </Label>
@@ -133,14 +135,19 @@ function EstoqueFardamentosPage() {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Peça</TableHead>
-              <TableHead>Tamanho</TableHead>
-              <TableHead>Cor</TableHead>
-              <TableHead>Estado</TableHead>
-              <TableHead>Modelagem</TableHead>
-              <TableHead>Empresa</TableHead>
-              <TableHead className="tabular-nums">Quantidade</TableHead>
-              <TableHead>Observação</TableHead>
+              <SortableHeader option={SORT_OPTS[0]!} value={sort} onChange={setSort} />
+              <SortableHeader option={SORT_OPTS[1]!} value={sort} onChange={setSort} />
+              <SortableHeader option={SORT_OPTS[2]!} value={sort} onChange={setSort} />
+              <SortableHeader option={SORT_OPTS[3]!} value={sort} onChange={setSort} />
+              <SortableHeader option={SORT_OPTS[4]!} value={sort} onChange={setSort} />
+              <SortableHeader option={SORT_OPTS[5]!} value={sort} onChange={setSort} />
+              <SortableHeader
+                option={SORT_OPTS[6]!}
+                value={sort}
+                onChange={setSort}
+                className="tabular-nums"
+              />
+              <SortableHeader option={SORT_OPTS[7]!} value={sort} onChange={setSort} />
               <TableHead className="w-12" />
             </TableRow>
           </TableHeader>
@@ -167,9 +174,13 @@ function EstoqueFardamentosPage() {
                       setOpen(true);
                     }}
                     onHistorico={() => setHistoricoId(r.id)}
-                    onExcluir={() => {
-                      deleteRow("estoque_fardamentos", r.id);
-                      toast.success("Item excluído.");
+                    onExcluir={async () => {
+                      const res = await deleteRow("estoque_fardamentos", r.id);
+                      if (res.ok) {
+                        toast.success("Item excluído.");
+                      } else {
+                        toast.error(res.erro);
+                      }
                     }}
                   />
                 </TableCell>
@@ -193,13 +204,25 @@ function EstoqueFardamentosPage() {
         description="Controle de peças por tamanho e cor."
         fields={FIELDS}
         initial={editando ? (editando as unknown as FormValues) : undefined}
-        onSubmit={(values) => {
+        onSubmit={async (values) => {
           if (editando) {
-            updateRow("estoque_fardamentos", editando.id, values as Partial<EstoqueFardamento>);
-            toast.success("Item atualizado.");
+            const r = await updateRow(
+              "estoque_fardamentos",
+              editando.id,
+              values as Partial<EstoqueFardamento>,
+            );
+            if (r.ok) {
+              toast.success("Item atualizado.");
+            } else {
+              toast.error(r.erro);
+            }
           } else {
-            insertRow("estoque_fardamentos", values as never);
-            toast.success("Item cadastrado.");
+            const r = await insertRow("estoque_fardamentos", values as never);
+            if (r.ok) {
+              toast.success("Item cadastrado.");
+            } else {
+              toast.error(r.erro);
+            }
           }
         }}
       />

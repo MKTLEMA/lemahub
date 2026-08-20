@@ -19,7 +19,7 @@ import { ProximityDot } from "@/components/proximity-dot";
 import { deleteRow, insertRow, updateRow, useDb } from "@/lib/store";
 import { exportCsv } from "@/lib/csv";
 import {
-  SortControls,
+  SortableHeader,
   applySort,
   type SortConfig,
   type SortOption,
@@ -68,6 +68,7 @@ function FinanceiroPage() {
     { value: "solicitante", label: "Solicitante", type: "text" },
     { value: "valor", label: "Valor", type: "number" },
     { value: "data_compra", label: "Data", type: "date" },
+    { value: "data_orcamento", label: "Orçamento", type: "date" },
   ];
   const [sort, setSort] = useState<SortConfig | null>(null);
   const rows = useMemo(() => {
@@ -95,19 +96,34 @@ function FinanceiroPage() {
           setOpen(true);
         }}
         onExportar={() => exportCsv("compras-financeiro", rows)}
-        extra={<SortControls options={SORT_OPTS} value={sort} onChange={setSort} />}
+        extra={null}
       />
 
       <div className="animate-rise overflow-hidden rounded-xl border border-border bg-card">
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Finalidade</TableHead>
-              <TableHead>Fornecedor</TableHead>
-              <TableHead>Solicitante</TableHead>
-              <TableHead className="tabular-nums">Valor</TableHead>
-              <TableHead className="tabular-nums">Data</TableHead>
-              <TableHead className="tabular-nums">Orçamento</TableHead>
+              <SortableHeader option={SORT_OPTS[0]!} value={sort} onChange={setSort} />
+              <SortableHeader option={SORT_OPTS[1]!} value={sort} onChange={setSort} />
+              <SortableHeader option={SORT_OPTS[2]!} value={sort} onChange={setSort} />
+              <SortableHeader
+                option={SORT_OPTS[3]!}
+                value={sort}
+                onChange={setSort}
+                className="tabular-nums"
+              />
+              <SortableHeader
+                option={SORT_OPTS[4]!}
+                value={sort}
+                onChange={setSort}
+                className="tabular-nums"
+              />
+              <SortableHeader
+                option={SORT_OPTS[5]!}
+                value={sort}
+                onChange={setSort}
+                className="tabular-nums"
+              />
               <TableHead>Comprovante</TableHead>
               <TableHead>Notas</TableHead>
               <TableHead className="w-12" />
@@ -193,9 +209,13 @@ function FinanceiroPage() {
                       setOpen(true);
                     }}
                     onHistorico={() => setHistoricoId(f.id)}
-                    onExcluir={() => {
-                      deleteRow("compras_financeiro", f.id);
-                      toast.success("Registro excluído.");
+                    onExcluir={async () => {
+                      const res = await deleteRow("compras_financeiro", f.id);
+                      if (res.ok) {
+                        toast.success("Registro excluído.");
+                      } else {
+                        toast.error(res.erro);
+                      }
                     }}
                   />
                 </TableCell>
@@ -219,13 +239,25 @@ function FinanceiroPage() {
         description="Anexe o comprovante (PDF/JPG/PNG, até 2MB) e acompanhe as notas."
         fields={FIELDS}
         initial={editando ? (editando as unknown as FormValues) : undefined}
-        onSubmit={(values) => {
+        onSubmit={async (values) => {
           if (editando) {
-            updateRow("compras_financeiro", editando.id, values as Partial<CompraFinanceiro>);
-            toast.success("Registro atualizado.");
+            const r = await updateRow(
+              "compras_financeiro",
+              editando.id,
+              values as Partial<CompraFinanceiro>,
+            );
+            if (r.ok) {
+              toast.success("Registro atualizado.");
+            } else {
+              toast.error(r.erro);
+            }
           } else {
-            insertRow("compras_financeiro", values as never);
-            toast.success("Compra registrada.");
+            const r = await insertRow("compras_financeiro", values as never);
+            if (r.ok) {
+              toast.success("Compra registrada.");
+            } else {
+              toast.error(r.erro);
+            }
           }
         }}
       />

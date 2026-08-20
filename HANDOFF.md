@@ -102,7 +102,7 @@ App interno de gestão de demandas de marketing da LEMA. Construído com TanStac
 
 | Commit    | Descrição                                                                  |
 | --------- | -------------------------------------------------------------------------- |
-| `f1a2b3c` | feat: branding + logos, calendar toggle, EventoCard, compact list + kanban  |
+| `f1a2b3c` | feat: branding + logos, calendar toggle, EventoCard, compact list + kanban |
 | `5c0d91c` | fix: Worker env access, store re-hydration, random passwords               |
 | `f6b7672` | fix: requireAdmin uses direct fetch with token (RLS was blocking)          |
 | `01e19df` | fix: admin access + sorting on all list pages                              |

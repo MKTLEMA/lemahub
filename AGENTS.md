@@ -82,6 +82,7 @@ Internal marketing demand management tool for LEMA endomarketing. Built with Tan
 ### Deploy Protocol (mandatory after every change)
 
 After any code modification that should go live:
+
 1. Run `npm run lint` to check for errors (warnings allowed)
 2. Run `npx tsc --noEmit` to verify types
 3. Run `npm run build:cf` to build for production

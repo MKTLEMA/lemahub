@@ -30,7 +30,7 @@ import { diasAteAniversario } from "@/lib/alerts";
 import { exportCsv } from "@/lib/csv";
 import { ColorTag } from "@/components/color-tag";
 import {
-  SortControls,
+  SortableHeader,
   applySort,
   type SortConfig,
   type SortOption,
@@ -138,8 +138,11 @@ function ColaboradoresPage() {
     { value: "nome", label: "Nome", type: "text" },
     { value: "empresa_grupo", label: "Empresa", type: "text" },
     { value: "setor", label: "Setor", type: "text" },
+    { value: "formato_trabalho", label: "Modalidade", type: "text" },
+    { value: "genero", label: "Gênero", type: "text" },
     { value: "data_aniversario", label: "Aniversário", type: "date" },
     { value: "data_ingresso", label: "Admissão", type: "date" },
+    { value: "tamanho_farda", label: "Camisa", type: "text" },
   ];
   const [sort, setSort] = useState<SortConfig | null>(null);
 
@@ -214,7 +217,6 @@ function ColaboradoresPage() {
         }}
         extra={
           <div className="flex flex-wrap gap-2">
-            <SortControls options={SORT_OPTS} value={sort} onChange={setSort} />
             <Select value={fEmpresa} onValueChange={setFEmpresa}>
               <SelectTrigger className="w-32" aria-label="Empresa">
                 <SelectValue />
@@ -328,14 +330,24 @@ function ColaboradoresPage() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Nome</TableHead>
-                  <TableHead>Empresa</TableHead>
-                  <TableHead>Setor</TableHead>
-                  <TableHead>Modalidade</TableHead>
-                  <TableHead>Gênero</TableHead>
-                  <TableHead className="tabular-nums">Aniversário</TableHead>
-                  <TableHead className="tabular-nums">Admissão</TableHead>
-                  <TableHead>Camisa</TableHead>
+                  <SortableHeader option={SORT_OPTS[0]!} value={sort} onChange={setSort} />
+                  <SortableHeader option={SORT_OPTS[1]!} value={sort} onChange={setSort} />
+                  <SortableHeader option={SORT_OPTS[2]!} value={sort} onChange={setSort} />
+                  <SortableHeader option={SORT_OPTS[3]!} value={sort} onChange={setSort} />
+                  <SortableHeader option={SORT_OPTS[4]!} value={sort} onChange={setSort} />
+                  <SortableHeader
+                    option={SORT_OPTS[5]!}
+                    value={sort}
+                    onChange={setSort}
+                    className="tabular-nums"
+                  />
+                  <SortableHeader
+                    option={SORT_OPTS[6]!}
+                    value={sort}
+                    onChange={setSort}
+                    className="tabular-nums"
+                  />
+                  <SortableHeader option={SORT_OPTS[7]!} value={sort} onChange={setSort} />
                   <TableHead className="w-12" />
                 </TableRow>
               </TableHeader>
@@ -393,9 +405,13 @@ function ColaboradoresPage() {
                             setOpen(true);
                           }}
                           onHistorico={() => setHistoricoId(c.id)}
-                          onExcluir={() => {
-                            deleteRow("colaboradores", c.id);
-                            toast.success("Colaborador excluído.");
+                          onExcluir={async () => {
+                            const res = await deleteRow("colaboradores", c.id);
+                            if (res.ok) {
+                              toast.success("Colaborador excluído.");
+                            } else {
+                              toast.error(res.erro);
+                            }
                           }}
                         />
                       </TableCell>
@@ -422,13 +438,21 @@ function ColaboradoresPage() {
         description="Dados cadastrais e informações de apoio ao marketing."
         fields={FIELDS}
         initial={editando ? (editando as unknown as FormValues) : undefined}
-        onSubmit={(values) => {
+        onSubmit={async (values) => {
           if (editando) {
-            updateRow("colaboradores", editando.id, values as Partial<Colaborador>);
-            toast.success("Colaborador atualizado.");
+            const r = await updateRow("colaboradores", editando.id, values as Partial<Colaborador>);
+            if (r.ok) {
+              toast.success("Colaborador atualizado.");
+            } else {
+              toast.error(r.erro);
+            }
           } else {
-            insertRow("colaboradores", values as never);
-            toast.success("Colaborador cadastrado.");
+            const r = await insertRow("colaboradores", values as never);
+            if (r.ok) {
+              toast.success("Colaborador cadastrado.");
+            } else {
+              toast.error(r.erro);
+            }
           }
         }}
       />

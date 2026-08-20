@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import {
   Table,
@@ -27,6 +27,8 @@ import {
   type SortOption,
 } from "@/components/sort-controls";
 import type { CompraCastanha } from "@/lib/types";
+import { useIsMobile } from "@/hooks/use-mobile";
+import { MobileCardList } from "@/components/mobile-card-list";
 
 export const Route = createFileRoute("/castanhas")({
   head: () => ({
@@ -71,6 +73,7 @@ function CastanhasPage() {
   const [editando, setEditando] = useState<CompraCastanha | null>(null);
   const [historicoId, setHistoricoId] = useState<string | null>(null);
   const [destaque, setDestaque] = useState<string | null>(null);
+  const isMobile = useIsMobile();
 
   const fields = useMemo<FieldSpec[]>(() => {
     const outros = db.compras_castanhas

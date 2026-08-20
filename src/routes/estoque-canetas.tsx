@@ -25,6 +25,8 @@ import {
   type SortOption,
 } from "@/components/sort-controls";
 import type { EstoqueCaneta } from "@/lib/types";
+import { useIsMobile } from "@/hooks/use-mobile";
+import { MobileCardList } from "@/components/mobile-card-list";
 
 export const Route = createFileRoute("/estoque-canetas")({
   head: () => ({
@@ -52,6 +54,7 @@ function EstoqueCanetasPage() {
   const [editando, setEditando] = useState<EstoqueCaneta | null>(null);
   const [historicoId, setHistoricoId] = useState<string | null>(null);
   const [limite, setLimite] = useState(() => getThresholds()["canetas"]);
+  const isMobile = useIsMobile();
 
   useEffect(() => {
     setLimite(getThresholds()["canetas"]);
@@ -112,61 +115,87 @@ function EstoqueCanetasPage() {
       />
 
       <div className="animate-rise overflow-hidden rounded-xl border border-border bg-card">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <SortableHeader option={SORT_OPTS[0]!} value={sort} onChange={setSort} />
-              <SortableHeader option={SORT_OPTS[1]!} value={sort} onChange={setSort} />
-              <SortableHeader
-                option={SORT_OPTS[2]!}
-                value={sort}
-                onChange={setSort}
-                className="tabular-nums"
-              />
-              <SortableHeader option={SORT_OPTS[3]!} value={sort} onChange={setSort} />
-              <TableHead className="w-12" />
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {rows.map((r) => (
-              <TableRow key={r.id} className="animate-rise">
-                <TableCell className="font-medium">
-                  <ProximityDot
-                    severidade={r.quantidade <= limite ? "alerta" : "ok"}
-                    label={r.modelo}
-                  />
-                </TableCell>
-                <TableCell>{r.cor}</TableCell>
-                <TableCell className="tabular-nums">{r.quantidade}</TableCell>
-                <TableCell className="max-w-60 truncate">{r.observacao || "—"}</TableCell>
-                <TableCell>
-                  <RowActions
-                    onEditar={() => {
-                      setEditando(r);
-                      setOpen(true);
-                    }}
-                    onHistorico={() => setHistoricoId(r.id)}
-                    onExcluir={async () => {
-                      const res = await deleteRow("estoque_canetas", r.id);
-                      if (res.ok) {
-                        toast.success("Item excluído.");
-                      } else {
-                        toast.error(res.erro);
-                      }
-                    }}
-                  />
-                </TableCell>
-              </TableRow>
-            ))}
-            {rows.length === 0 && (
+        {isMobile ? (
+          <MobileCardList
+            columns={[
+              { key: "modelo", label: "Modelo" },
+              { key: "cor", label: "Cor" },
+              { key: "quantidade", label: "Quantidade" },
+              { key: "observacao", label: "Observação" },
+            ]}
+            rows={rows}
+            onEditar={() => {
+              setEditando(rows.find((r) => r.id) as unknown as EstoqueCaneta);
+              setOpen(true);
+            }}
+            onExcluir={async (id) => {
+              const res = await deleteRow("estoque_canetas", id);
+              if (res.ok) {
+                toast.success("Item excluído.");
+              } else {
+                toast.error(res.erro);
+              }
+            }}
+            onHistorico={async (id) => setHistoricoId(id)}
+            tabela="estoque_canetas"
+          />
+        ) : (
+          <Table>
+            <TableHeader>
               <TableRow>
-                <TableCell colSpan={5} className="py-10 text-center text-muted-foreground">
-                  Nenhum item encontrado.
-                </TableCell>
+                <SortableHeader option={SORT_OPTS[0]!} value={sort} onChange={setSort} />
+                <SortableHeader option={SORT_OPTS[1]!} value={sort} onChange={setSort} />
+                <SortableHeader
+                  option={SORT_OPTS[2]!}
+                  value={sort}
+                  onChange={setSort}
+                  className="tabular-nums"
+                />
+                <SortableHeader option={SORT_OPTS[3]!} value={sort} onChange={setSort} />
+                <TableHead className="w-12" />
               </TableRow>
-            )}
-          </TableBody>
-        </Table>
+            </TableHeader>
+            <TableBody>
+              {rows.map((r) => (
+                <TableRow key={r.id} className="animate-rise">
+                  <TableCell className="font-medium">
+                    <ProximityDot
+                      severidade={r.quantidade <= limite ? "alerta" : "ok"}
+                      label={r.modelo}
+                    />
+                  </TableCell>
+                  <TableCell>{r.cor}</TableCell>
+                  <TableCell className="tabular-nums">{r.quantidade}</TableCell>
+                  <TableCell className="max-w-60 truncate">{r.observacao || "—"}</TableCell>
+                  <TableCell>
+                    <RowActions
+                      onEditar={() => {
+                        setEditando(r);
+                        setOpen(true);
+                      }}
+                      onHistorico={() => setHistoricoId(r.id)}
+                      onExcluir={async () => {
+                        const res = await deleteRow("estoque_canetas", r.id);
+                        if (res.ok) {
+                          toast.success("Item excluído.");
+                        } else {
+                          toast.error(res.erro);
+                        }
+                      }}
+                    />
+                  </TableCell>
+                </TableRow>
+              ))}
+              {rows.length === 0 && (
+                <TableRow>
+                  <TableCell colSpan={5} className="py-10 text-center text-muted-foreground">
+                    Nenhum item encontrado.
+                  </TableCell>
+                </TableRow>
+              )}
+            </TableBody>
+          </Table>
+        )}
       </div>
 
       <EntityForm

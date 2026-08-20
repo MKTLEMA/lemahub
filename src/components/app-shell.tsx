@@ -7,6 +7,7 @@ import {
   History,
   LayoutDashboard,
   LogOut,
+  Menu,
   Package,
   Pen,
   CupSoda,
@@ -49,6 +50,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   const router = useRouter();
   const alertas = useMemo(() => calcularAlertas(db), [db]);
   const [collapsed, setCollapsed] = useState(false);
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [busca, setBusca] = useState("");
   const pathname = useRouterState({ select: (s) => s.location.pathname });
 
@@ -252,6 +254,15 @@ export function AppShell({ children }: { children: ReactNode }) {
           </div>
 
           <div className="ml-auto flex items-center gap-1">
+            <Button
+              variant="ghost"
+              size="icon"
+              aria-label="Abrir navegação"
+              className="md:hidden text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+              onClick={() => setMobileNavOpen(true)}
+            >
+              <Menu className="size-4" />
+            </Button>
             <Link to="/alertas" className="mr-1 hidden sm:block">
               <span className="inline-flex items-center gap-2 rounded-full border border-border px-3 py-1.5 text-xs">
                 <ProximityDot severidade={pior as never} />
@@ -268,7 +279,88 @@ export function AppShell({ children }: { children: ReactNode }) {
           </div>
         </header>
 
-        <main className="flex-1 px-4 py-6 md:px-6">{children}</main>
+        {/* Mobile navigation drawer */}
+        {mobileNavOpen && (
+          <aside
+            className={cn(
+              "fixed inset-0 z-50 bg-sidebar/98 transition-colors left-full min-h-screen flex flex-col pt-6 pb-8 pr-6 text-sidebar-foreground",
+              "opacity-0 pointer-events-none",
+              mobileNavOpen && "opacity-1 pointer-events-auto transition-transform duration-300",
+              "-translate-x-0 md:translate-x-full",
+            )}
+            onClick={() => setMobileNavOpen(false)}
+          >
+            <Button
+              variant="ghost"
+              size="icon"
+              aria-label="Fechar navegação"
+              className="absolute top-4 right-4"
+              onClick={() => setMobileNavOpen(false)}
+            >
+              <ChevronLeft className="size-4" />
+            </Button>
+            <BrandLogo tone="white" className="mb-6 w-16 h-16 block mx-auto" />
+            <nav className="flex flex-col gap-4 mb-auto">
+              {NAV.map(({ to, label, icon: Icon }) => {
+                const active = to === "/" ? pathname === "/" : pathname.startsWith(to);
+                return (
+                  <Link
+                    key={to}
+                    to={to}
+                    className={cn(
+                      "flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors",
+                      active
+                        ? "bg-sidebar-accent font-medium text-sidebar-accent-foreground"
+                        : "text-sidebar-foreground hover:bg-sidebar-accent/60 hover:text-sidebar-accent-foreground",
+                    )}
+                  >
+                    <Icon className="size-4 shrink-0" />
+                    <span className="truncate">{label}</span>
+                  </Link>
+                );
+              })}
+            </nav>
+            <div className="mt-auto flex flex-col gap-2 px-2">
+              <Link
+                to="/perfil"
+                className={cn(
+                  "flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors",
+                  pathname === "/perfil"
+                    ? "bg-sidebar-accent font-medium text-sidebar-accent-foreground"
+                    : "text-sidebar-foreground/80 hover:bg-sidebar-accent/60 hover:text-sidebar-accent-foreground",
+                )}
+              >
+                <User className="size-4 shrink-0" />
+                Perfil
+              </Link>
+              <Link
+                to="/admin"
+                className={cn(
+                  "flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors",
+                  pathname === "/admin"
+                    ? "bg-sidebar-accent font-medium text-sidebar-accent-foreground"
+                    : "text-sidebar-foreground/80 hover:bg-sidebar-accent/60 hover:text-sidebar-accent-foreground",
+                )}
+              >
+                <Shield className="size-4 shrink-0" />
+                Admin
+              </Link>
+              <button
+                type="button"
+                title="Sair"
+                onClick={async () => {
+                  await auth.logout();
+                  await router.invalidate();
+                  await router.navigate({ to: "/login", replace: true });
+                }}
+                className="flex items-center gap-3 rounded-lg px-3 py-2 text-left text-sm text-sidebar-foreground/80 transition-colors hover:bg-sidebar-accent/60 hover:text-sidebar-accent-foreground"
+              >
+                <LogOut className="size-4 shrink-0" />
+                Sair
+              </button>
+            </div>
+          </aside>
+        )}
       </div>
     </div>
   );

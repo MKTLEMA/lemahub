@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { ProximityDot } from "@/components/proximity-dot";
 import { BrandLogo, BrandSymbol } from "@/components/brand";
-import { ChevronLeft, User, Shield, LogOut, Search } from "lucide-react";
+import { ChevronLeft, Menu, User, Shield, LogOut, Search } from "lucide-react";
 import { calcularAlertas } from "@/lib/alerts";
 import { useDb } from "@/lib/store";
 import * as auth from "@/lib/auth";
@@ -146,9 +146,9 @@ export function AppShell({ children }: { children: ReactNode }) {
             const active = item.to === "/" ? pathname === "/" : pathname.startsWith(item.to);
             const Icon = item.icon;
             return (
-              <a
+              <Link
                 key={item.to}
-                href={item.to}
+                to={item.to}
                 className={cn(
                   "group flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors",
                   active
@@ -174,7 +174,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                     {badge}
                   </span>
                 )}
-              </a>
+              </Link>
             );
           })}
         </nav>
@@ -221,9 +221,91 @@ export function AppShell({ children }: { children: ReactNode }) {
           </button>
         </div>
       </aside>
+      {/* Mobile navigation drawer using Sheet component */}
+      <Sheet open={mobileNavOpen} onOpenChange={setMobileNavOpen}>
+        <SheetContent side="left" className="w-72 bg-sidebar text-sidebar-foreground">
+          <SheetHeader>
+            <SheetTitle className="flex items-center gap-2">
+              <BrandLogo tone="white" className="w-8 h-8" />
+              <span className="text-lg font-semibold">LEMA</span>
+            </SheetTitle>
+          </SheetHeader>
+          <nav className="flex flex-col gap-1 px-2 py-2">
+            {NAV.map(({ to, label, icon: Icon }) => {
+              const active = to === "/" ? pathname === "/" : pathname.startsWith(to);
+              return (
+                <Link
+                  key={to}
+                  to={to}
+                  onClick={() => setMobileNavOpen(false)}
+                  className={cn(
+                    "flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors",
+                    active
+                      ? "bg-sidebar-accent font-medium text-sidebar-accent-foreground"
+                      : "text-sidebar-foreground hover:bg-sidebar-accent/60 hover:text-sidebar-accent-foreground",
+                  )}
+                >
+                  <Icon className="size-4 shrink-0" />
+                  <span className="truncate">{label}</span>
+                </Link>
+              );
+            })}
+          </nav>
+          <div className="mt-auto flex flex-col gap-2 px-2">
+            <Link
+              to="/perfil"
+              className={cn(
+                "flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors",
+                pathname === "/perfil"
+                  ? "bg-sidebar-accent font-medium text-sidebar-accent-foreground"
+                  : "text-sidebar-foreground/80 hover:bg-sidebar-accent/60 hover:text-sidebar-accent-foreground",
+              )}
+            >
+              <User className="size-4 shrink-0" />
+              Perfil
+            </Link>
+            <Link
+              to="/admin"
+              className={cn(
+                "flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors",
+                pathname === "/admin"
+                  ? "bg-sidebar-accent font-medium text-sidebar-accent-foreground"
+                  : "text-sidebar-foreground/80 hover:bg-sidebar-accent/60 hover:text-sidebar-accent-foreground",
+              )}
+            >
+              <Shield className="size-4 shrink-0" />
+              Admin
+            </Link>
+            <button
+              type="button"
+              title="Sair"
+              onClick={async () => {
+                await auth.logout();
+                await router.invalidate();
+                await router.navigate({ to: "/login", replace: true });
+              }}
+              className="flex items-center gap-3 rounded-lg px-3 py-2 text-left text-sm text-sidebar-foreground/80 transition-colors hover:bg-sidebar-accent/60 hover:text-sidebar-accent-foreground"
+            >
+              <LogOut className="size-4 shrink-0" />
+              Sair
+            </button>
+          </div>
+        </SheetContent>
+      </Sheet>
 
       <div className="flex min-w-0 flex-1 flex-col">
         <header className="sticky top-0 z-20 flex h-16 items-center gap-3 border-b border-border bg-background/85 px-4 backdrop-blur md:px-6">
+          {/* Mobile hamburger menu */}
+          <div className="flex h-16 items-center justify-between px-4 md:hidden">
+            <Button
+              variant="ghost"
+              size="icon"
+              aria-label="Abrir navegação"
+              onClick={() => setMobileNavOpen(true)}
+            >
+              <Menu className="size-5" />
+            </Button>
+          </div>
           <div className="relative w-full max-w-sm">
             <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
             <Input
@@ -250,12 +332,12 @@ export function AppShell({ children }: { children: ReactNode }) {
           </div>
 
           <div className="ml-auto flex items-center gap-1">
-            <a href="/alertas" className="mr-1 hidden sm:block">
+            <Link to="/alertas" className="mr-1 hidden sm:block">
               <span className="inline-flex items-center gap-2 rounded-full border border-border px-3 py-1.5 text-xs">
                 <ProximityDot severidade={pior as never} />
                 {badge} alerta(s)
               </span>
-            </a>
+            </Link>
             <ThemeToggle />
             <span className="ml-1 hidden items-center gap-2 sm:flex">
               <span className="flex size-7 items-center justify-center rounded-full bg-primary text-xs font-semibold text-primary-foreground">

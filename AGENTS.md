@@ -73,9 +73,21 @@ Internal marketing demand management tool for LEMA endomarketing. Built with Tan
 
 - `npm run dev` — Start dev server (port 3000)
 - `npm run build` — Production build
+- `npm run build:cf` — Production build + CF circular ESM patch (use before deploy)
 - `npm run lint` — ESLint check
 - `npm run format` — Prettier format
 - `npx tsc --noEmit` — TypeScript check
+- `npm run deploy` — Build + deploy to Cloudflare Workers: `$env:CLOUDFLARE_ACCOUNT_ID="1335a4fd63bf7c4626fb5686fac51b53"; npx wrangler deploy`
+
+### Deploy Protocol (mandatory after every change)
+
+After any code modification that should go live:
+1. Run `npm run lint` to check for errors (warnings allowed)
+2. Run `npx tsc --noEmit` to verify types
+3. Run `npm run build:cf` to build for production
+4. Run `npm run deploy` to deploy to Cloudflare Workers
+5. Fetch the live URL to verify the new assets loaded (confirm new hashes, favicon, etc.)
+6. Commit and push to GitHub
 
 ## Code Conventions
 

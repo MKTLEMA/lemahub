@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
+import { AnexoViewer } from "@/components/anexo-viewer";
 import {
   Table,
   TableBody,
@@ -151,14 +152,7 @@ function FinanceiroPage() {
                 </TableCell>
                 <TableCell>
                   {f.comprovante_url ? (
-                    <a
-                      className="text-accent underline-offset-4 hover:underline"
-                      href={f.comprovante_url}
-                      target="_blank"
-                      rel="noreferrer"
-                    >
-                      Ver
-                    </a>
+                    <AnexoViewer url={f.comprovante_url} />
                   ) : (
                     <span className="text-muted-foreground">—</span>
                   )}

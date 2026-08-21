@@ -20,6 +20,7 @@ import { deleteRow, insertRow, updateRow, useDb } from "@/lib/store";
 import { diasAte, severidadePorDias } from "@/lib/alerts";
 import { exportCsv } from "@/lib/csv";
 import { cn } from "@/lib/utils";
+import { AnexoViewer } from "@/components/anexo-viewer";
 import {
   SortableHeader,
   applySort,
@@ -251,6 +252,7 @@ function CastanhasPage() {
                           Fin
                         </Label>
                       </div>
+                      <AnexoViewer url={k.anexo_url} />
                       <Badge variant={pendente ? "destructive" : "secondary"}>
                         {pendente ? "pendente" : "ok"}
                       </Badge>

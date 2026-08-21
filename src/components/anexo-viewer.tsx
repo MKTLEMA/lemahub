@@ -10,10 +10,8 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogClose,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { X } from "lucide-react";
 
 type MimeType = "pdf" | "image" | "other";
 
@@ -36,7 +34,6 @@ function detectMimeType(url: string): MimeType {
 export function AnexoViewer({ url }: { url: string | undefined | null }) {
   const [blobUrl, setBlobUrl] = React.useState<string | null>(null);
   const [mime, setMime] = React.useState<MimeType>("other");
-  const [triggered, setTriggered] = React.useState(false);
 
   useEffect(() => {
     if (!url) return;
@@ -85,85 +82,32 @@ export function AnexoViewer({ url }: { url: string | undefined | null }) {
   return (
     <Dialog>
       <DialogTrigger asChild>
-        <Button className="text-accent underline-offset-4 hover:underline cursor-pointer w-full">
+        <button className="cursor-pointer text-accent underline-offset-4 hover:underline">
           Ver
-        </Button>
+        </button>
       </DialogTrigger>
-      <DialogContent>
+      <DialogContent className="max-w-4xl">
         <DialogHeader>
           <DialogTitle>{mime === "pdf" ? "Visualizar Anexo" : "Visualizar Arquivo"}</DialogTitle>
         </DialogHeader>
 
-        <DialogFooter className="justify-between">
-          {mime === "pdf" ? (
-            <>
-              <iframe
-                src={blobUrl}
-                style={{ width: "100%", height: "600px", border: "none" }}
-                title="Anexo PDF"
-              />
-              <div className="mt-4 flex gap-2">
-                <Button onClick={handleDownload} variant="outline">
-                  Baixar
-                </Button>
-                <Button
-                  onClick={() => window.open(blobUrl, "_blank", "noopener")}
-                  variant="outline"
-                >
-                  Abrir em nova aba
-                </Button>
-              </div>
-            </>
-          ) : mime === "image" ? (
-            <div>
-              <img
-                src={blobUrl}
-                alt="Anexo"
-                style={{
-                  width: "100%",
-                  maxWidth: "800px",
-                  height: "auto",
-                  border: "1px solid #e2e8f0",
-                }}
-              />
-              <div className="mt-2 flex gap-2">
-                <Button onClick={handleDownload} variant="outline">
-                  Baixar
-                </Button>
-                <Button
-                  onClick={() => window.open(blobUrl, "_blank", "noopener")}
-                  variant="outline"
-                >
-                  Abrir em nova aba
-                </Button>
-              </div>
-            </div>
-          ) : (
-            <div>
-              <p className="text-sm text-muted-foreground">
-                {mime === "other"
-                  ? "Visualização não disponível neste tipo de arquivo"
-                  : "Formato de arquivo não suportado para visualização inline"}
-              </p>
-              <div className="mt-2 flex gap-2">
-                <Button onClick={handleDownload} variant="outline">
-                  Baixar
-                </Button>
-                <Button
-                  onClick={() => window.open(blobUrl, "_blank", "noopener")}
-                  variant="outline"
-                >
-                  Abrir em nova aba
-                </Button>
-              </div>
-            </div>
-          )}
-          <DialogClose asChild>
-            <Button variant="ghost" size="sm">
-              <X className="h-4 w-4" />
-              <span className="sr-only">Fechar</span>
-            </Button>
-          </DialogClose>
+        {mime === "pdf" ? (
+          <iframe src={blobUrl} className="h-[70vh] w-full rounded-md border" title="Anexo PDF" />
+        ) : mime === "image" ? (
+          <img src={blobUrl} alt="Anexo" className="max-h-[70vh] w-full object-contain" />
+        ) : (
+          <p className="text-sm text-muted-foreground">
+            Formato de arquivo não suportado para visualização inline
+          </p>
+        )}
+
+        <DialogFooter className="justify-end">
+          <Button variant="outline" onClick={handleDownload}>
+            Baixar
+          </Button>
+          <Button variant="outline" onClick={() => window.open(blobUrl, "_blank", "noopener")}>
+            Abrir em nova aba
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

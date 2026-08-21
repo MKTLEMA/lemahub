@@ -1,11 +1,11 @@
 "use client";
 
 import * as React from "react";
-import { useEffect, useRef } from "react";
+import { useEffect } from "react";
 
-import { cn } from "@/lib/utils";
 import {
   Dialog,
+  DialogTrigger,
   DialogContent,
   DialogFooter,
   DialogHeader,
@@ -84,6 +84,11 @@ export function AnexoViewer({ url }: { url: string | undefined | null }) {
 
   return (
     <Dialog>
+      <DialogTrigger asChild>
+        <Button className="text-accent underline-offset-4 hover:underline cursor-pointer w-full">
+          Ver
+        </Button>
+      </DialogTrigger>
       <DialogContent>
         <DialogHeader>
           <DialogTitle>{mime === "pdf" ? "Visualizar Anexo" : "Visualizar Arquivo"}</DialogTitle>

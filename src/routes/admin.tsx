@@ -103,14 +103,14 @@ function AdminPage() {
       let rnd = "";
       for (let i = 0; i < 8; i++) rnd += chars[Math.floor(Math.random() * chars.length)];
       const tempPwd = `Lema${rnd}!`;
-      const res = await createUser({
-        data: { accessToken: token, email, password: tempPwd },
-      });
-      await supabase.from("perfis").upsert({
-        id: res.id,
-        email,
-        nome: nome || email.split("@")[0],
-        role,
+      await createUser({
+        data: {
+          accessToken: token,
+          email,
+          password: tempPwd,
+          nome: nome || (email.split("@")[0] ?? email),
+          role,
+        },
       });
       setSenhaGerada({ email, senha: tempPwd });
       setEmail("");
@@ -281,7 +281,6 @@ function AdminPage() {
                       onClick={async () => {
                         try {
                           await deleteUser({ data: { accessToken: token, userId: p.id } });
-                          await supabase.from("perfis").delete().eq("id", p.id);
                           toast.success("Conta removida.");
                           void carregar();
                         } catch (err: unknown) {

@@ -232,7 +232,8 @@ END $$;
 
 DO $$ BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'perfis_insert' AND tablename = 'perfis') THEN
-    CREATE POLICY perfis_insert ON perfis FOR INSERT TO authenticated WITH CHECK (auth.uid() = id);
+    CREATE POLICY perfis_insert ON perfis FOR INSERT TO authenticated
+      WITH CHECK (auth.uid() = id OR EXISTS (SELECT 1 FROM perfis p WHERE p.id = auth.uid() AND p.role = 'admin'));
   END IF;
 END $$;
 

@@ -39,6 +39,7 @@ function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [erro, setErro] = useState(false);
+  const [mensagemErro, setMensagemErro] = useState("");
   const [carregando, setCarregando] = useState(false);
   const [resetOpen, setResetOpen] = useState(false);
   const [resetEmail, setResetEmail] = useState("");
@@ -54,6 +55,7 @@ function LoginPage() {
     e.preventDefault();
     setCarregando(true);
     setErro(false);
+    setMensagemErro("");
     try {
       const res = await auth.login(email, password);
       if (res.ok) {
@@ -61,6 +63,7 @@ function LoginPage() {
         await router.navigate({ to: "/", replace: true });
       } else {
         setErro(true);
+        setMensagemErro(res.erro ?? "E-mail ou senha inválidos.");
       }
     } finally {
       setCarregando(false);
@@ -122,7 +125,7 @@ function LoginPage() {
               onChange={(e) => setPassword(e.target.value)}
             />
           </div>
-          {erro && <p className="text-sm text-destructive">E-mail ou senha inválidos.</p>}
+          {erro && <p className="text-sm text-destructive">{mensagemErro}</p>}
           <Button type="submit" className="w-full" disabled={carregando}>
             <Lock className="size-4" /> {carregando ? "Entrando..." : "Entrar"}
           </Button>

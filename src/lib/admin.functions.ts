@@ -57,7 +57,9 @@ export const listUsers = createServerFn({ method: "POST" })
   });
 
 export const createUser = createServerFn({ method: "POST" })
-  .validator((d: { accessToken: string; email: string; password: string }) => d)
+  .validator(
+    (d: { accessToken: string; email: string; password: string; nome: string; role: string }) => d,
+  )
   .handler(async ({ data }) => {
     await requireAdmin(data.accessToken);
     const admin = getAdminClient();
@@ -67,7 +69,12 @@ export const createUser = createServerFn({ method: "POST" })
       email_confirm: true,
     });
     if (error) throw new Error(error.message);
-    return { id: created.user.id, email: created.user.email ?? "" };
+    const userId = created.user.id;
+    const { error: perfilErr } = await admin
+      .from("perfis")
+      .upsert({ id: userId, email: data.email, nome: data.nome, role: data.role });
+    if (perfilErr) throw new Error(perfilErr.message);
+    return { id: userId, email: created.user.email ?? "" };
   });
 
 export const resetPassword = createServerFn({ method: "POST" })
@@ -88,6 +95,7 @@ export const deleteUser = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     await requireAdmin(data.accessToken);
     const admin = getAdminClient();
+    await admin.from("perfis").delete().eq("id", data.userId);
     const { error } = await admin.auth.admin.deleteUser(data.userId);
     if (error) throw new Error(error.message);
     return { ok: true as const };

@@ -77,6 +77,7 @@ export const resetPassword = createServerFn({ method: "POST" })
     const admin = getAdminClient();
     const { error } = await admin.auth.admin.updateUserById(data.userId, {
       password: data.password,
+      email_confirm: true,
     });
     if (error) throw new Error(error.message);
     return { ok: true as const };

@@ -74,23 +74,6 @@ export function calcularAlertas(db: DBShape): AlertaItem[] {
     }
   });
 
-  db.compras_castanhas.forEach((k) => {
-    const dias = diasAte(k.prazo_entrega);
-    if (dias !== null && dias <= 3) {
-      itens.push({
-        id: `prazo-${k.id}`,
-        tabela: "compras_castanhas",
-        registro_id: k.id,
-        titulo: `Entrega de ${k.fornecedor}`,
-        descricao: `${k.finalidade} · ${textoDias(dias)}`,
-        severidade: severidadePorDias(dias),
-        ordem: dias,
-      });
-    }
-  });
-
-  // Pendências de nota: um alerta por GRUPO (mesmo número de NF ou vinculação
-  // explícita), evitando duplicar o mesmo pedido em vários itens.
   const grupoDe = (k: DBShape["compras_castanhas"][number]) =>
     k.numero_nf?.trim() ? `nf:${k.numero_nf.trim()}` : `id:${k.vinculado_a ?? k.id}`;
 

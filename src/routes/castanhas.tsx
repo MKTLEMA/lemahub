@@ -17,7 +17,7 @@ import { EntityForm, type FieldSpec, type FormValues } from "@/components/entity
 import { HistoricoDialog } from "@/components/historico-dialog";
 import { ProximityDot } from "@/components/proximity-dot";
 import { deleteRow, insertRow, updateRow, useDb } from "@/lib/store";
-import { diasAte, severidadePorDias } from "@/lib/alerts";
+
 import { exportCsv } from "@/lib/csv";
 import { cn } from "@/lib/utils";
 import { AnexoViewer } from "@/components/anexo-viewer";
@@ -188,9 +188,8 @@ function CastanhasPage() {
           </TableHeader>
           <TableBody>
             {rows.map((k) => {
-              const dias = diasAte(k.prazo_entrega);
               const pendente = !k.nota_fiscal_emitida || !k.nota_enviada_financeiro;
-              const sev = pendente ? "pendente" : severidadePorDias(dias);
+              const sev = pendente ? "pendente" : "ok";
               const pares = paresDe(k);
               return (
                 <TableRow

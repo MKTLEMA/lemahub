@@ -3,6 +3,7 @@ import { CalendarDays, Package, Receipt, Users } from "lucide-react";
 import { useMemo, useState } from "react";
 import { CalendarBoard, type CalendarModo } from "@/components/calendar-board";
 import { CalendarModeToggle } from "@/components/calendar-mode-toggle";
+import { AlertaIcone } from "@/components/alerta-icone";
 import { ColaboradorCard } from "@/components/colaborador-card";
 import { EventoCard } from "@/components/evento-card";
 import { ProximityDot } from "@/components/proximity-dot";
@@ -153,6 +154,7 @@ function Home() {
             <ul className="divide-y divide-border">
               {alertas.slice(0, 8).map((a) => (
                 <li key={a.id} className="flex items-start gap-3 py-3">
+                  <AlertaIcone tabela={a.tabela} className="mt-0.5 size-4 shrink-0" />
                   <ProximityDot severidade={a.severidade} className="mt-1" />
                   <div>
                     <p className="text-sm font-medium">{a.titulo}</p>

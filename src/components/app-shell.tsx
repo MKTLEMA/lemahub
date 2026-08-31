@@ -1,12 +1,12 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useRouter, useRouterState } from "@tanstack/react-router";
 import { Link } from "@tanstack/react-router";
-import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { ProximityDot } from "@/components/proximity-dot";
 import { BrandLogo, BrandSymbol } from "@/components/brand";
+import { AlertaPopup } from "@/components/alerta-popup";
 import { ChevronLeft, Menu, User, Shield, LogOut, Search } from "lucide-react";
 import { calcularAlertas } from "@/lib/alerts";
 import { useDb } from "@/lib/store";
@@ -51,6 +51,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [busca, setBusca] = useState("");
   const [avisado, setAvisado] = useState(false);
+  const [popupAberto, setPopupAberto] = useState(false);
   const [nome, setNome] = useState("");
   const [authChecked, setAuthChecked] = useState(false);
 
@@ -75,11 +76,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (avisado || alertas.length === 0) return;
     setAvisado(true);
-    const proximos = alertas.filter((a) => a.severidade === "alerta").length;
-    const pendentes = alertas.filter((a) => a.severidade === "pendente").length;
-    toast("Central de Alertas", {
-      description: `${proximos} item(ns) na janela de 3 dias · ${pendentes} pendência(s) em aberto.`,
-    });
+    setPopupAberto(true);
   }, [alertas, avisado]);
 
   const resultados = useMemo(() => {
@@ -350,6 +347,16 @@ export function AppShell({ children }: { children: ReactNode }) {
 
         <main className="flex-1 px-4 py-6 md:px-6">{children}</main>
       </div>
+
+      <AlertaPopup
+        aberto={popupAberto}
+        onOpenChange={setPopupAberto}
+        alertas={alertas}
+        eventos={db.eventos}
+        onVerCentral={() => {
+          void router.navigate({ to: "/alertas" });
+        }}
+      />
     </div>
   );
 }

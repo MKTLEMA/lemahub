@@ -1,6 +1,7 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useRouter } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
+import { Link2 } from "lucide-react";
 import {
   Table,
   TableBody,
@@ -66,9 +67,11 @@ const VAZIO_CASTANHA = {
 };
 
 const brl = (v: number) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+const br = (d: string) => (d ? d.split("-").reverse().join("/") : "");
 
 function CastanhasPage() {
   const db = useDb();
+  const router = useRouter();
   const [busca, setBusca] = useState("");
   const [open, setOpen] = useState(false);
   const [editando, setEditando] = useState<CompraCastanha | null>(null);
@@ -80,6 +83,10 @@ function CastanhasPage() {
     const outros = db.compras_castanhas
       .filter((k) => k.id !== editando?.id)
       .map((k) => ({ value: k.id, label: `${k.fornecedor} · ${k.finalidade}` }));
+    const eventos = db.eventos.map((e) => ({
+      value: e.id,
+      label: `${e.nome}${e.data_inicio ? ` · ${br(e.data_inicio)}` : ""}`,
+    }));
     return [
       ...BASE_FIELDS,
       {
@@ -88,8 +95,14 @@ function CastanhasPage() {
         type: "select",
         optionsKV: outros,
       },
+      {
+        name: "evento_id",
+        label: "Evento vinculado",
+        type: "select",
+        optionsKV: eventos,
+      },
     ];
-  }, [db.compras_castanhas, editando]);
+  }, [db.compras_castanhas, db.eventos, editando]);
 
   /** Pedidos ligados por vinculação explícita (simétrica) ou mesmo nº de NF. */
   const paresDe = (k: CompraCastanha) =>
@@ -191,6 +204,9 @@ function CastanhasPage() {
               const pendente = !k.nota_fiscal_emitida || !k.nota_enviada_financeiro;
               const sev = pendente ? "pendente" : "ok";
               const pares = paresDe(k);
+              const eventoVinculado = k.evento_id
+                ? db.eventos.find((e) => e.id === k.evento_id)
+                : undefined;
               return (
                 <TableRow
                   key={k.id}
@@ -202,7 +218,26 @@ function CastanhasPage() {
                   <TableCell className="font-medium">
                     <ProximityDot severidade={sev} label={k.fornecedor} />
                   </TableCell>
-                  <TableCell>{k.finalidade}</TableCell>
+                  <TableCell>
+                    {eventoVinculado ? (
+                      <Badge
+                        variant="outline"
+                        className="cursor-pointer gap-1"
+                        title={`Vinculado ao evento ${eventoVinculado.nome} — clique para abrir`}
+                        onClick={() => {
+                          void router.navigate({
+                            to: "/eventos",
+                            state: { destacarEventoId: eventoVinculado.id } as never,
+                          });
+                        }}
+                      >
+                        <Link2 className="size-3" />
+                        {eventoVinculado.nome}
+                      </Badge>
+                    ) : (
+                      k.finalidade
+                    )}
+                  </TableCell>
                   <TableCell>{k.solicitante}</TableCell>
                   <TableCell className="tabular-nums">{brl(k.valor)}</TableCell>
                   <TableCell className="tabular-nums">
@@ -296,24 +331,33 @@ function CastanhasPage() {
         fields={fields}
         initial={editando ? (editando as unknown as FormValues) : undefined}
         onSubmit={async (values) => {
+          const eventoId = String(values["evento_id"] ?? "") || null;
+          const ev = db.eventos.find((x) => x.id === eventoId);
+          const desvinculando = !!editando?.evento_id && !eventoId;
+          const dados = {
+            ...values,
+            vinculado_a: String(values["vinculado_a"] ?? "") || null,
+            finalidade: ev ? ev.nome : String(values["finalidade"] ?? ""),
+            ...(eventoId || desvinculando ? { evento_id: eventoId } : {}),
+          } as Partial<CompraCastanha>;
           if (editando) {
-            const r = await updateRow(
-              "compras_castanhas",
-              editando.id,
-              values as Partial<CompraCastanha>,
-            );
+            const r = await updateRow("compras_castanhas", editando.id, dados);
             if (r.ok) {
-              toast.success("Compra atualizada.");
+              toast.success(
+                ev ? `Compra atualizada e vinculada a ${ev.nome}.` : "Compra atualizada.",
+              );
             } else {
               toast.error(r.erro);
             }
           } else {
             const r = await insertRow("compras_castanhas", {
               ...VAZIO_CASTANHA,
-              ...values,
+              ...dados,
             } as never);
             if (r.ok) {
-              toast.success("Compra registrada.");
+              toast.success(
+                ev ? `Compra registrada e vinculada a ${ev.nome}.` : "Compra registrada.",
+              );
             } else {
               toast.error(r.erro);
             }

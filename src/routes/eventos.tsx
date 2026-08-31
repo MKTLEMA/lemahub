@@ -1,7 +1,7 @@
 import { createFileRoute, useLocation, useRouter } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
-import { Megaphone } from "lucide-react";
+import { Megaphone, Link2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -303,6 +303,7 @@ function EventosPage() {
             {rows.map((e) => {
               const dias = diasAte(e.data_inicio);
               const sev = dias !== null && dias >= 0 && dias <= 3 ? "alerta" : "ok";
+              const vinculados = db.compras_castanhas.filter((k) => k.evento_id === e.id).length;
               return (
                 <div
                   key={e.id}
@@ -324,6 +325,16 @@ function EventosPage() {
                       <div className="flex flex-wrap items-center gap-2">
                         <ProximityDot severidade={sev} label={e.nome} />
                         {e.acao_promocional ? <PromoBadge /> : null}
+                        {vinculados > 0 ? (
+                          <Badge
+                            variant="outline"
+                            className="gap-1"
+                            title="Pedidos de castanha vinculados a este evento"
+                          >
+                            <Link2 className="size-3" /> {vinculados}{" "}
+                            {vinculados === 1 ? "pedido" : "pedidos"}
+                          </Badge>
+                        ) : null}
                       </div>
                       <p className="mt-1 text-xs text-muted-foreground">
                         {e.associacao_relacionada && `${e.associacao_relacionada} · `}
@@ -355,9 +366,19 @@ function EventosPage() {
                         }}
                         onHistorico={() => setHistoricoId(e.id)}
                         onExcluir={async () => {
+                          const vinculados = db.compras_castanhas.filter(
+                            (k) => k.evento_id === e.id,
+                          );
+                          for (const k of vinculados) {
+                            await updateRow("compras_castanhas", k.id, { evento_id: null });
+                          }
                           const res = await deleteRow("eventos", e.id);
                           if (res.ok) {
-                            toast.success("Evento excluído.");
+                            toast.success(
+                              vinculados.length > 0
+                                ? "Evento excluído e pedidos de castanha desvinculados."
+                                : "Evento excluído.",
+                            );
                           } else {
                             toast.error(res.erro);
                           }

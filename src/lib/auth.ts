@@ -88,11 +88,13 @@ export async function login(
   });
   if (error) return { ok: false, erro: error.message };
   const user = data.user;
-  let { data: perfil, error: perfilErr } = await supabase
+  const perfilRes = await supabase
     .from("perfis")
     .select("nome, role")
     .eq("id", user.id)
     .maybeSingle();
+  const perfilErr = perfilRes.error;
+  let perfil = perfilRes.data ?? null;
   if (perfilErr) {
     console.error("Erro ao buscar perfil:", perfilErr.message);
   }

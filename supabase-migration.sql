@@ -442,3 +442,10 @@ VALUES
   ('g1', 'Festa junina interna', EXTRACT(YEAR FROM CURRENT_DATE)::TEXT || '-06-01', 'Decoração e comidas típicas', 5400.00),
   ('g2', 'Café com o time', TO_CHAR(CURRENT_DATE, 'YYYY-MM') || '-01', 'Coffee break mensal', 1250.00)
 ON CONFLICT (id) DO NOTHING;
+
+-- ============================================================
+-- 8. VÍNCULO PEDIDO DE CASTANHA ↔ EVENTO
+-- ============================================================
+-- Se o schema já estava aplicado, rodar apenas o ALTER abaixo no SQL Editor.
+
+ALTER TABLE compras_castanhas ADD COLUMN IF NOT EXISTS evento_id TEXT;

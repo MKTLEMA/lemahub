@@ -35,6 +35,7 @@ export type CompraCastanha = {
   observacao: string;
   numero_nf: string;
   vinculado_a: string | null;
+  evento_id?: string | null;
   anexo_url: string;
   nota_fiscal_emitida: boolean;
   nota_enviada_financeiro: boolean;

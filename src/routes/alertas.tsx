@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMemo } from "react";
+import { AlertaIcone } from "@/components/alerta-icone";
 import { ProximityDot } from "@/components/proximity-dot";
 import { calcularAlertas } from "@/lib/alerts";
 import { useDb } from "@/lib/store";
@@ -49,12 +50,14 @@ function AlertasPage() {
               key={tabela}
               className="animate-rise rounded-xl border border-border bg-card p-4"
             >
-              <h2 className="font-display mb-3 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+              <h2 className="font-display mb-3 flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+                <AlertaIcone tabela={tabela} />
                 {LABELS[tabela]} · {itens.length}
               </h2>
               <ul className="divide-y divide-border">
                 {itens.map((a) => (
                   <li key={a.id} className="flex items-start gap-3 py-3">
+                    <AlertaIcone tabela={a.tabela} className="mt-0.5 size-4 shrink-0" />
                     <ProximityDot severidade={a.severidade} className="mt-1" />
                     <div>
                       <p className="text-sm font-medium">{a.titulo}</p>

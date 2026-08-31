@@ -19,14 +19,27 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
+import { SeletorBuscavel } from "@/components/seletor-buscavel";
 
 export type FieldSpec = {
   name: string;
   label: string;
-  type: "text" | "date" | "number" | "boolean" | "email" | "select" | "list" | "image" | "file";
+  type:
+    | "text"
+    | "date"
+    | "number"
+    | "boolean"
+    | "email"
+    | "select"
+    | "combobox"
+    | "list"
+    | "image"
+    | "file";
   options?: string[];
   /** Alternativa a options quando o valor salvo difere do rótulo exibido. */
-  optionsKV?: { value: string; label: string }[];
+  optionsKV?: { value: string; label: string; grupo?: string; keywords?: string[] }[];
+  /** Em campos combobox: grupos que só aparecem ao ativar o botão de exibição. */
+  gruposOcultos?: string[];
   /** Campo só é exibido quando outro campo tiver o valor indicado. */
   visibleIf?: { field: string; equals: unknown };
 };
@@ -251,6 +264,14 @@ export function EntityForm({
                     </>
                   ) : null}
                 </div>
+              ) : f.type === "combobox" ? (
+                <SeletorBuscavel
+                  id={f.name}
+                  value={String(values[f.name] ?? "")}
+                  onValueChange={(v) => set(f.name, v)}
+                  options={f.optionsKV ?? []}
+                  gruposOcultos={f.gruposOcultos ?? []}
+                />
               ) : f.type === "select" ? (
                 <Select
                   value={String(values[f.name] ?? "")}

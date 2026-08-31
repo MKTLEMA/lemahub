@@ -28,7 +28,7 @@ import {
   type SortConfig,
   type SortOption,
 } from "@/components/sort-controls";
-import type { CompraCastanha } from "@/lib/types";
+import type { CompraCastanha, Evento } from "@/lib/types";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { MobileCardList } from "@/components/mobile-card-list";
 
@@ -79,14 +79,29 @@ function CastanhasPage() {
   const [destaque, setDestaque] = useState<string | null>(null);
   const isMobile = useIsMobile();
 
+  const hojeIso = useMemo(() => {
+    const h = new Date();
+    return `${h.getFullYear()}-${String(h.getMonth() + 1).padStart(2, "0")}-${String(h.getDate()).padStart(2, "0")}`;
+  }, []);
+
   const fields = useMemo<FieldSpec[]>(() => {
     const outros = db.compras_castanhas
       .filter((k) => k.id !== editando?.id)
       .map((k) => ({ value: k.id, label: `${k.fornecedor} · ${k.finalidade}` }));
-    const eventos = db.eventos.map((e) => ({
+    const deEvento = (e: Evento, encerrado: boolean) => ({
       value: e.id,
       label: `${e.nome}${e.data_inicio ? ` · ${br(e.data_inicio)}` : ""}`,
-    }));
+      grupo: encerrado ? "Eventos encerrados" : "Próximos eventos",
+      keywords: [e.nome, e.data_inicio, br(e.data_inicio)].filter(Boolean),
+    });
+    const encerrados = db.eventos
+      .filter((e) => !!e.data_inicio && e.data_inicio < hojeIso)
+      .sort((a, b) => (b.data_inicio ?? "").localeCompare(a.data_inicio ?? ""))
+      .map((e) => deEvento(e, true));
+    const proximos = db.eventos
+      .filter((e) => !e.data_inicio || e.data_inicio >= hojeIso)
+      .sort((a, b) => (a.data_inicio ?? "9999-12-31").localeCompare(b.data_inicio ?? "9999-12-31"))
+      .map((e) => deEvento(e, false));
     return [
       ...BASE_FIELDS,
       {
@@ -98,11 +113,12 @@ function CastanhasPage() {
       {
         name: "evento_id",
         label: "Evento vinculado",
-        type: "select",
-        optionsKV: eventos,
+        type: "combobox",
+        optionsKV: [...proximos, ...encerrados],
+        gruposOcultos: ["Eventos encerrados"],
       },
     ];
-  }, [db.compras_castanhas, db.eventos, editando]);
+  }, [db.compras_castanhas, db.eventos, editando, hojeIso]);
 
   /** Pedidos ligados por vinculação explícita (simétrica) ou mesmo nº de NF. */
   const paresDe = (k: CompraCastanha) =>

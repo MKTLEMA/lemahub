@@ -10,17 +10,11 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Pencil, Megaphone, Package, Plus, Link2, X } from "lucide-react";
 import type { Evento } from "@/lib/types";
 import { diasAte } from "@/lib/alerts";
 import { ProximityDot } from "@/components/proximity-dot";
+import { SeletorBuscavel } from "@/components/seletor-buscavel";
 import { updateRow, useDb } from "@/lib/store";
 
 function Linha({ rotulo, valor }: { rotulo: string; valor: string }) {
@@ -217,18 +211,16 @@ export function EventoCard({
                     A finalidade do pedido passa a ser o nome deste evento.
                   </DialogDescription>
                 </DialogHeader>
-                <Select value={pedidoId} onValueChange={setPedidoId}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Selecione o pedido" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {disponiveis.map((k) => (
-                      <SelectItem key={k.id} value={k.id}>
-                        {k.fornecedor || "Pedido"} · {k.finalidade}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <SeletorBuscavel
+                  value={pedidoId}
+                  onValueChange={setPedidoId}
+                  options={disponiveis.map((k) => ({
+                    value: k.id,
+                    label: `${k.fornecedor || "Pedido"} · ${k.finalidade}`,
+                  }))}
+                  placeholder="Selecione o pedido"
+                  comNenhum={false}
+                />
                 <DialogFooter>
                   <Button type="button" variant="outline" onClick={() => setVinculoOpen(false)}>
                     Cancelar

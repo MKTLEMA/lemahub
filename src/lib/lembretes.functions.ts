@@ -51,7 +51,6 @@ async function requireEditor(accessToken?: string) {
 }
 
 const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
-const COOLDOWN_MS = 12 * 60 * 60 * 1000;
 
 const ASSINATURA_URL =
   "https://mktlema-lemahub.holy-bush-967a.workers.dev/assinatura-marketing.png";
@@ -111,24 +110,6 @@ export const enviarLembreteCastanha = createServerFn({ method: "POST" })
       .maybeSingle();
     if (!pedido) throw new Error("Pedido não encontrado.");
     const pedidoCastanha = pedido as CompraCastanha;
-
-    // Cooldown: mesmo pedido + destinatário em comum nas últimas 12h
-    const desde = new Date(Date.now() - COOLDOWN_MS).toISOString();
-    const { data: recentes } = await admin
-      .from("envios_lembrete")
-      .select("destinatarios")
-      .eq("tipo", "castanha")
-      .eq("referencia_id", data.pedidoId)
-      .gte("created_at", desde);
-    const bloqueados = new Set<string>();
-    (recentes ?? []).forEach((r: { destinatarios: string[] | null }) => {
-      (r.destinatarios ?? []).forEach((e) => {
-        if (emails.includes(e.toLowerCase())) bloqueados.add(e.toLowerCase());
-      });
-    });
-    if (bloqueados.size > 0) {
-      throw new Error(`Lembrete já enviado nas últimas 12h para: ${[...bloqueados].join(", ")}.`);
-    }
 
     const apiKey = getEnv("RESEND_API_KEY");
     if (!apiKey) {

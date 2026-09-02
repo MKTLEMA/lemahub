@@ -111,6 +111,49 @@ App interno de gestão de demandas de marketing da LEMA. Construído com TanStac
 | `9420f3e` | feat: auth guard, admin security, password reset flow                      |
 | `a23a072` | fix: add post-build patch for Cloudflare Workers ESM circular dependency   |
 
+## Atualização — 2026-09-01
+
+**Estado do repo:** limpo, `main` sincronizado com origin.
+
+### Mudanças desde 2026-08-19 (commits)
+
+| Commit    | Descrição                                                                                          |
+| --------- | -------------------------------------------------------------------------------------------------- |
+| `ea8449c` | Combobox pesquisável de eventos (`SeletorBuscavel`, grupos próximos/encerrados) + seletor de pedido no EventoCard |
+| `19ed74a` | Vínculo castanhas↔eventos (`evento_id`), popup central de alertas, ícones de alerta por categoria  |
+| `195884b` | Fix: reset de senha admin (email_confirm), perfis via server functions, mensagens reais de erro no login, RLS `perfis_insert` |
+| `f45ad61` | Fix: reset de senha + remoção de alertas de castanha baseados em prazo                             |
+| `9799f66`, `d56b892`, `6a2f84e` | Fix: AnexoViewer (visualizador de PDF in-app, botão "Ver")                    |
+| `ea38950`, `36bdea4`, `e68efd7` | Mobile: drawer nav (Sheet), `<main>`, card list + tabela transform           |
+| `f240d18` | CRUD com estado otimista + `ResultadoOperacao`, `SortableHeader` em todas as rotas                |
+
+### Documentação
+
+- **`AGENTS.md` foi reescrito em 2026-09-01** para refletir o código real — a versão anterior descrevia APIs/arquivos inexistentes (`useApp()`, `hasRole()`, tabela `contas`, `npm run deploy`, `src/components/alerts/`). Confiar na versão atual.
+- **Novo: `docs/LEMBRETES-EMAIL-PLANO.md`** — plano aprovado para lembretes por e-mail via Resend: botão manual "Enviar lembrete" por pedido de castanhas (popover com seleção múltipla + cadastro de destinatários) e lembretes automáticos de eventos (véspera + dia) via pg_cron, destinados a perfis admin/editor. Executar Fases 1→4 conforme o plano; a **Fase 0 (pré-voô) é do usuário** e bloqueia apenas os testes.
+
+### Segredo RESEND_API_KEY (configurado 2026-09-02)
+
+- Worker (fluxo manual): `npx wrangler secret put RESEND_API_KEY --name mktlema-lemahub`
+- Vault do Supabase (fluxo cron): `vault.create_secret('re_...', 'resend_api_key')` — neste projeto a extensão chama `supabase_vault` (o schema criado é `vault`); a função lê o secret mais recente com esse nome
+- Nunca criar com prefixo `VITE_`
+
+## Atualização — 2026-09-02
+
+### Lembretes por e-mail (Resend) — implementado e deployado
+
+- **Migration seção 9 aplicada via Supabase MCP**: tabelas `destinatarios_lembrete` + `envios_lembrete` (RLS role-gated admin/editor), schema privado `lembretes` com `enviar_lembretes_eventos()` (SECURITY DEFINER + REVOKE total de execução), cron `lembretes-eventos-email` (`0 * * * *` — horário, dedupe por evento+fase), realtime em destinatários.
+- **Atenção — default privileges do Supabase dão ALL para anon/authenticated em tabelas novas**: o migration 9.4 inclui REVOKEs explícitos (defense-in-depth). Replicar esse padrão em tabelas futuras.
+- **App**: `src/lib/lembretes.functions.ts` (server fn `enviarLembreteCastanha` — `requireEditor`, validação de e-mails, cooldown 12h por pedido+destinatário, log em `envios_lembrete`, tags) + `src/components/lembrete-popover.tsx` (cmdk multi-select + "+") + coluna "Enviar lembrete" em castanhas (visível só para admin/editor). `resend@6.25.0` pinado.
+- **Remetente**: `LEMA Hub <lembretes@compliance.lemaef.com.br>` (domínio já verificado na conta; entrega em qualquer destinatário). Adotado 2026-09-02 — o modo teste `onboarding@resend.dev` entregava só no Gmail dono da conta e caía no spam. Domínio definitivo (`@lemaef.com.br` ou subdomínio): time de tecnologia registra no Resend (botão "Sign in to Cloudflare") e troca o `from` no migration 9.6 + `lembretes.functions.ts`.
+- **Testes feitos (todos ✅)**: envio pontual → 200; função do cron → log + 403 esperado (restrição do modo teste, à época) + dedupe; envio manual via UI → 2 lembretes logados e entregues (confirmado pelo usuário 2026-09-02, `last_event: delivered` na API do Resend). Fix realtime (problema #7) deployado (`a069ef61`); switch de remetente + fix do `log_historico` deployados (`3824832a`).
+- Advisors: `log_historico` search_path CORRIGIDO (2026-09-02, `SET search_path = public, extensions`, migration atualizada). Pendentes: tabela órfã `public.lemahubmkt` (aguardando confirmação para apagar) e leaked password protection (ativar no dashboard: Authentication → Settings).
+
+### Supabase MCP (novo — 2026-09-01)
+
+- Configurado em `~/.config/opencode/opencode.jsonc` (servidor remoto `https://mcp.supabase.com/mcp?project_ref=uhlckghszxdioacrlehi&...`, OAuth autenticado com `opencode mcp auth supabase` — token com refresh automático).
+- Agentes podem executar SQL (`execute_sql`), rodar advisors e pesquisar docs diretamente — sem depender do usuário colar SQL no dashboard. Mudanças no config exigem reiniciar o opencode para surtir efeito.
+
 ## Problemas Conhecidos e Resoluções
 
 ### 1. `TypeError: createCsrfMiddleware is not a function` (SSR crash)
@@ -142,6 +185,11 @@ App interno de gestão de demandas de marketing da LEMA. Construído com TanStac
 
 **Causa:** `e.data_fim.split("-")` quando `data_fim` é `null` (eventos de 1 dia).
 **Fix:** Null-safe: `{e.data_fim ? e.data_fim.split("-").reverse().join("/") : "—"}`.
+
+### 7. `cannot add postgres_changes callbacks for realtime:db-changes after subscribe()` (console)
+
+**Causa:** `subscribeRealtime()` encadeava `.on()` no canal `"db-changes"` (reutilizado por nome) quando o canal já estava inscrito — disparado pela re-hidratação pós-login (fix do problema #4). Bug pré-existente; ruído no console, não quebrava o app.
+**Fix (2026-09-02):** guard `realtimeAssinado` em `store.ts` — canal único e idempotente; o supabase-js re-autentica o canal nas trocas de sessão (`realtime.setAuth`). Deploy `a069ef61`.
 
 ## Backup de Arquivos
 

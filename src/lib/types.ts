@@ -124,6 +124,14 @@ export type GastoEndomarketing = {
   updated_at: string;
 };
 
+export type DestinatarioLembrete = {
+  id: string;
+  nome: string;
+  email: string;
+  created_at: string;
+  updated_at: string;
+};
+
 export type TabelaNome =
   | "colaboradores"
   | "compras_castanhas"
@@ -132,7 +140,8 @@ export type TabelaNome =
   | "estoque_fardamentos"
   | "estoque_canetas"
   | "estoque_copos"
-  | "gastos_endomarketing";
+  | "gastos_endomarketing"
+  | "destinatarios_lembrete";
 
 export type HistoricoEdicao = {
   id: string;
@@ -156,6 +165,7 @@ export type DBShape = {
   estoque_canetas: EstoqueCaneta[];
   estoque_copos: EstoqueCopo[];
   gastos_endomarketing: GastoEndomarketing[];
+  destinatarios_lembrete: DestinatarioLembrete[];
   historico_edicoes: HistoricoEdicao[];
 };
 
@@ -168,4 +178,5 @@ export const LABELS: Record<TabelaNome, string> = {
   estoque_canetas: "Estoque de Canetas",
   estoque_copos: "Estoque de Copos",
   gastos_endomarketing: "Gastos de Endomarketing",
+  destinatarios_lembrete: "Destinatários de Lembrete",
 };

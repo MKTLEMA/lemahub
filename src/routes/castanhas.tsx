@@ -31,6 +31,8 @@ import {
 import type { CompraCastanha, Evento } from "@/lib/types";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { MobileCardList } from "@/components/mobile-card-list";
+import { LembretePopover } from "@/components/lembrete-popover";
+import * as auth from "@/lib/auth";
 
 export const Route = createFileRoute("/castanhas")({
   head: () => ({
@@ -78,6 +80,23 @@ function CastanhasPage() {
   const [historicoId, setHistoricoId] = useState<string | null>(null);
   const [destaque, setDestaque] = useState<string | null>(null);
   const isMobile = useIsMobile();
+  const [conta, setConta] = useState<auth.Conta | null>(null);
+
+  useEffect(() => {
+    let vivo = true;
+    const carregar = () =>
+      void auth.currentConta().then((c) => {
+        if (vivo) setConta(c);
+      });
+    carregar();
+    const unsub = auth.subscribeAuth(carregar);
+    return () => {
+      vivo = false;
+      unsub();
+    };
+  }, []);
+
+  const podeLembrete = conta?.role === "admin" || conta?.role === "editor";
 
   const hojeIso = useMemo(() => {
     const h = new Date();
@@ -212,6 +231,7 @@ function CastanhasPage() {
               />
               <TableHead>NF</TableHead>
               <TableHead>Notas</TableHead>
+              {podeLembrete && <TableHead className="text-right">Lembrete</TableHead>}
               <TableHead className="w-12" />
             </TableRow>
           </TableHeader>
@@ -308,6 +328,11 @@ function CastanhasPage() {
                       </Badge>
                     </div>
                   </TableCell>
+                  {podeLembrete && (
+                    <TableCell className="whitespace-nowrap text-right">
+                      <LembretePopover pedido={k} />
+                    </TableCell>
+                  )}
                   <TableCell>
                     <RowActions
                       onEditar={() => {
@@ -330,7 +355,10 @@ function CastanhasPage() {
             })}
             {rows.length === 0 && (
               <TableRow>
-                <TableCell colSpan={8} className="py-10 text-center text-muted-foreground">
+                <TableCell
+                  colSpan={podeLembrete ? 9 : 8}
+                  className="py-10 text-center text-muted-foreground"
+                >
                   Nenhuma compra encontrada.
                 </TableCell>
               </TableRow>

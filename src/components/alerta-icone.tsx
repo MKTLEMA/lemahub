@@ -7,6 +7,7 @@ import {
   Pen,
   CupSoda,
   TrendingUp,
+  Mail,
   type LucideIcon,
 } from "lucide-react";
 import type { TabelaNome } from "@/lib/types";
@@ -20,6 +21,7 @@ const ICONES: Record<TabelaNome, LucideIcon> = {
   estoque_canetas: Pen,
   estoque_copos: CupSoda,
   gastos_endomarketing: TrendingUp,
+  destinatarios_lembrete: Mail,
 };
 
 export function AlertaIcone({ tabela, className }: { tabela: TabelaNome; className?: string }) {

@@ -316,7 +316,7 @@ BEGIN
 
   RETURN NULL;
 END;
-$$ LANGUAGE plpgsql SECURITY INVOKER;
+$$ LANGUAGE plpgsql SECURITY INVOKER SET search_path = public, extensions;
 
 -- Criar triggers para cada tabela de domínio
 DO $$ BEGIN
@@ -449,3 +449,241 @@ ON CONFLICT (id) DO NOTHING;
 -- Se o schema já estava aplicado, rodar apenas o ALTER abaixo no SQL Editor.
 
 ALTER TABLE compras_castanhas ADD COLUMN IF NOT EXISTS evento_id TEXT;
+
+-- ============================================================
+-- 9. LEMBRETES POR E-MAIL (Resend + pg_cron)
+-- ============================================================
+-- Lembretes automáticos de eventos (véspera + dia) para perfis admin/editor,
+-- enviados via Resend (pg_net) e agendados com pg_cron.
+-- Lembretes manuais por pedido de castanhas: ver src/lib/lembretes.functions.ts.
+--
+-- PRÉ-REQUISITO (rodar UMA vez no SQL Editor, com a chave real — não commitar):
+--   select vault.create_secret('<RESEND_API_KEY>', 'resend_api_key');
+-- A função lê sempre o secret mais recente com esse nome.
+
+-- 9.1 Extensões (no-op se já habilitadas via Dashboard)
+CREATE EXTENSION IF NOT EXISTS pg_cron;
+CREATE EXTENSION IF NOT EXISTS pg_net WITH SCHEMA extensions;
+CREATE EXTENSION IF NOT EXISTS supabase_vault; -- no projeto LEMA o Vault é "supabase_vault" (o schema criado é "vault")
+
+-- 9.2 Tabelas
+CREATE TABLE IF NOT EXISTS destinatarios_lembrete (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  nome TEXT NOT NULL,
+  email TEXT NOT NULL UNIQUE,
+  created_at TIMESTAMPTZ DEFAULT now(),
+  updated_at TIMESTAMPTZ DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS envios_lembrete (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  tipo TEXT NOT NULL CHECK (tipo IN ('castanha', 'vespera', 'dia')),
+  referencia_id UUID,
+  destinatarios TEXT[] NOT NULL DEFAULT '{}',
+  assunto TEXT NOT NULL DEFAULT '',
+  status TEXT NOT NULL DEFAULT 'enviado' CHECK (status IN ('enviado', 'erro')),
+  detalhe TEXT,
+  disparado_por TEXT NOT NULL DEFAULT 'Sistema',
+  created_at TIMESTAMPTZ DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_envios_lembrete_ref ON envios_lembrete (tipo, referencia_id, created_at DESC);
+
+-- 9.3 RLS
+ALTER TABLE destinatarios_lembrete ENABLE ROW LEVEL SECURITY;
+ALTER TABLE envios_lembrete ENABLE ROW LEVEL SECURITY;
+
+-- Destinatários: leitura/escrita somente para admin/editor
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'destinatarios_select' AND tablename = 'destinatarios_lembrete') THEN
+    CREATE POLICY destinatarios_select ON destinatarios_lembrete FOR SELECT TO authenticated
+      USING (EXISTS (SELECT 1 FROM perfis p WHERE p.id = auth.uid() AND p.role IN ('admin', 'editor')));
+  END IF;
+END $$;
+
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'destinatarios_insert' AND tablename = 'destinatarios_lembrete') THEN
+    CREATE POLICY destinatarios_insert ON destinatarios_lembrete FOR INSERT TO authenticated
+      WITH CHECK (EXISTS (SELECT 1 FROM perfis p WHERE p.id = auth.uid() AND p.role IN ('admin', 'editor')));
+  END IF;
+END $$;
+
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'destinatarios_update' AND tablename = 'destinatarios_lembrete') THEN
+    CREATE POLICY destinatarios_update ON destinatarios_lembrete FOR UPDATE TO authenticated
+      USING (EXISTS (SELECT 1 FROM perfis p WHERE p.id = auth.uid() AND p.role IN ('admin', 'editor')))
+      WITH CHECK (EXISTS (SELECT 1 FROM perfis p WHERE p.id = auth.uid() AND p.role IN ('admin', 'editor')));
+  END IF;
+END $$;
+
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'destinatarios_delete' AND tablename = 'destinatarios_lembrete') THEN
+    CREATE POLICY destinatarios_delete ON destinatarios_lembrete FOR DELETE TO authenticated
+      USING (EXISTS (SELECT 1 FROM perfis p WHERE p.id = auth.uid() AND p.role IN ('admin', 'editor')));
+  END IF;
+END $$;
+
+-- Log de envios: leitura para admin/editor. SEM policies de escrita para
+-- clientes — somente service role (server functions) e pg_cron (postgres) gravam.
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'envios_select' AND tablename = 'envios_lembrete') THEN
+    CREATE POLICY envios_select ON envios_lembrete FOR SELECT TO authenticated
+      USING (EXISTS (SELECT 1 FROM perfis p WHERE p.id = auth.uid() AND p.role IN ('admin', 'editor')));
+  END IF;
+END $$;
+
+-- 9.4 GRANTs (obrigatórios: novas tabelas não são expostas à Data API desde 2026-04)
+-- Nota: os default privileges do Supabase concedem ALL para anon/authenticated em
+-- tabelas novas — os REVOKEs fecham o que excede o desenhado (RLS já cobre; isto é
+-- defense-in-depth: envios sem escrita por clientes, anon sem nada).
+DO $$ BEGIN
+  GRANT SELECT, INSERT, UPDATE, DELETE ON destinatarios_lembrete TO authenticated;
+  GRANT SELECT ON envios_lembrete TO authenticated;
+  GRANT SELECT, INSERT ON envios_lembrete TO service_role;
+  REVOKE ALL ON destinatarios_lembrete FROM anon;
+  REVOKE ALL ON envios_lembrete FROM anon;
+  REVOKE INSERT, UPDATE, DELETE ON envios_lembrete FROM authenticated;
+END $$;
+
+-- 9.5 Realtime (somente destinatários — envios é consultado on-demand)
+DO $pub$ BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_publication_tables
+    WHERE pubname = 'supabase_realtime' AND schemaname = 'public' AND tablename = 'destinatarios_lembrete'
+  ) THEN
+    ALTER PUBLICATION supabase_realtime ADD TABLE destinatarios_lembrete;
+  END IF;
+END $pub$;
+
+-- 9.6 Função de envio (schema privado `lembretes` — fora da Data API)
+CREATE SCHEMA IF NOT EXISTS lembretes;
+
+CREATE OR REPLACE FUNCTION lembretes.enviar_lembretes_eventos()
+RETURNS void
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $fn$
+DECLARE
+  v_hoje date := (now() AT TIME ZONE 'America/Sao_Paulo')::date;
+  v_api_key text;
+  v_destinatarios text[];
+  v_assunto text := 'Lembrete — Eventos nos próximos dias';
+  v_html text;
+  v_ids uuid[] := '{}';
+  v_fases text[] := '{}';
+  v_ev record;
+BEGIN
+  -- Chave da API no Vault (a mais recente com esse nome)
+  SELECT decrypted_secret INTO v_api_key
+  FROM vault.decrypted_secrets
+  WHERE name = 'resend_api_key'
+  ORDER BY created_at DESC
+  LIMIT 1;
+
+  IF v_api_key IS NULL OR v_api_key = '' THEN
+    RAISE WARNING 'lembretes: secret resend_api_key não encontrado no Vault';
+    RETURN;
+  END IF;
+
+  -- Destinatários: perfis admin/editor com e-mail plausível
+  SELECT array_agg(email) INTO v_destinatarios
+  FROM perfis
+  WHERE role IN ('admin', 'editor')
+    AND email ~ '^[^@[:space:]]+@[^@[:space:]]+\.[^@[:space:]]+$';
+
+  IF v_destinatarios IS NULL THEN
+    RAISE WARNING 'lembretes: nenhum destinatário (perfis admin/editor)';
+    RETURN;
+  END IF;
+
+  -- Corpo do e-mail (template placeholder — layout definitivo virá depois)
+  v_html := '<div style="font-family: Arial, sans-serif; max-width: 560px; margin: 0 auto;">'
+    || '<h2 style="color: #0a2540;">Eventos nos próximos dias</h2>'
+    || '<p>Olá! Estamos nos aproximando dos seguintes eventos do calendário LEMA:</p><ul>';
+
+  -- Eventos que começam hoje ('dia') ou amanhã ('vespera'), ainda não notificados
+  -- (datas são TEXT yyyy-mm-dd; o regex protege o cast de linhas vazias/inválidas)
+  FOR v_ev IN
+    SELECT ev.id, ev.nome, ev.cidade, ev.estado, ev.data_evento,
+           CASE WHEN ev.data_evento = v_hoje THEN 'dia' ELSE 'vespera' END AS fase
+    FROM (
+      SELECT e.id, e.nome, e.cidade, e.estado, e.data_inicio::date AS data_evento
+      FROM eventos e
+      WHERE e.data_inicio ~ '^\d{4}-\d{2}-\d{2}$'
+    ) ev
+    WHERE ev.data_evento IN (v_hoje, v_hoje + 1)
+      AND NOT EXISTS (
+        SELECT 1 FROM envios_lembrete el
+        WHERE el.referencia_id = ev.id
+          AND el.tipo = (CASE WHEN ev.data_evento = v_hoje THEN 'dia' ELSE 'vespera' END)
+          AND el.status = 'enviado'
+      )
+    ORDER BY ev.data_evento
+  LOOP
+    v_html := v_html || format(
+      '<li><strong>%s</strong> — %s/%s · %s%s</li>',
+      v_ev.nome, v_ev.cidade, v_ev.estado,
+      to_char(v_ev.data_evento, 'DD/MM/YYYY'),
+      CASE WHEN v_ev.fase = 'dia' THEN ' (começa hoje)' ELSE ' (começa amanhã)' END
+    );
+    v_ids := array_append(v_ids, v_ev.id);
+    v_fases := array_append(v_fases, v_ev.fase);
+  END LOOP;
+
+  IF array_length(v_ids, 1) IS NULL THEN
+    RETURN; -- nada a notificar agora
+  END IF;
+
+  v_html := v_html || '</ul>'
+    || '<p style="color: #5a6b7d; font-size: 13px;">Este é um lembrete automático do LEMA Demand Hub.</p></div>';
+
+  -- Envio via Resend. pg_net é assíncrono: a requisição sai após o commit desta transação.
+  -- REMETENTE: compliance.lemaef.com.br é domínio já verificado na conta Resend (entrega
+  -- em qualquer destinatário). Quando o time de tecnologia verificar lemaef.com.br (ou
+  -- subdomínio), trocar o 'from' abaixo e rodar de novo o bloco 9.6.
+  PERFORM net.http_post(
+    url := 'https://api.resend.com/emails',
+    body := jsonb_build_object(
+      'from', 'LEMA Hub <lembretes@compliance.lemaef.com.br>',
+      'to', to_jsonb(v_destinatarios),
+      'subject', v_assunto,
+      'html', v_html,
+      'tags', jsonb_build_array(jsonb_build_object('name', 'tipo', 'value', 'evento'))
+    ),
+    headers := jsonb_build_object(
+      'Authorization', 'Bearer ' || v_api_key,
+      'Content-Type', 'application/json'
+    ),
+    timeout_milliseconds := 5000
+  );
+
+  -- Registra o envio por evento (dedupe "ever" por evento+fase + auditoria)
+  INSERT INTO envios_lembrete (tipo, referencia_id, destinatarios, assunto, status, disparado_por)
+  SELECT f.fase, f.id, v_destinatarios, v_assunto, 'enviado', 'pg_cron'
+  FROM unnest(v_ids, v_fases) AS f(id, fase);
+
+  RAISE LOG 'lembretes: % evento(s) notificado(s) por e-mail', array_length(v_ids, 1);
+
+EXCEPTION WHEN OTHERS THEN
+  -- Nunca propagar erro: um falho no cron não pode interromper nada
+  RAISE WARNING 'lembretes: falha ao enviar lembretes de eventos — %', SQLERRM;
+END;
+$fn$;
+
+-- Bloquear execução direta por clientes (apenas pg_cron/postgres)
+REVOKE EXECUTE ON FUNCTION lembretes.enviar_lembretes_eventos() FROM PUBLIC, anon, authenticated;
+REVOKE USAGE ON SCHEMA lembretes FROM PUBLIC, anon, authenticated;
+
+-- 9.7 Agendamento: horário (captura eventos cadastrados em cima da hora;
+-- o dedupe por evento+fase impede reenvio). "Hoje" é calculado em
+-- America/Sao_Paulo dentro da função, então o horário UTC do cron não afeta.
+DO $cronblock$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM cron.job WHERE jobname = 'lembretes-eventos-email') THEN
+    PERFORM cron.schedule(
+      'lembretes-eventos-email',
+      '0 * * * *',
+      $job$SELECT lembretes.enviar_lembretes_eventos();$job$
+    );
+  END IF;
+END $cronblock$;

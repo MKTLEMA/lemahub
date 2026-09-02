@@ -11,6 +11,7 @@ const EMPTY: DBShape = {
   estoque_canetas: [],
   estoque_copos: [],
   gastos_endomarketing: [],
+  destinatarios_lembrete: [],
   historico_edicoes: [],
 };
 
@@ -23,6 +24,7 @@ const TABLES: TabelaNome[] = [
   "estoque_canetas",
   "estoque_copos",
   "gastos_endomarketing",
+  "destinatarios_lembrete",
 ];
 
 type Row = { id: string; created_at: string; updated_at: string };
@@ -98,7 +100,14 @@ async function hydrate() {
   subscribeRealtime();
 }
 
+let realtimeAssinado = false;
+
 function subscribeRealtime() {
+  // Idempotente: o canal "db-changes" é reutilizado por nome, e .on() em canal já
+  // inscrito lança erro (acontecia na re-hidratação pós-login). O canal único
+  // re-autentica sozinho nas trocas de sessão (supabase-js chama realtime.setAuth).
+  if (realtimeAssinado) return;
+  realtimeAssinado = true;
   const channel = supabase
     .channel("db-changes")
     .on("postgres_changes", { event: "*", schema: "public", table: "colaboradores" }, () =>
@@ -124,6 +133,9 @@ function subscribeRealtime() {
     )
     .on("postgres_changes", { event: "*", schema: "public", table: "gastos_endomarketing" }, () =>
       refetch("gastos_endomarketing"),
+    )
+    .on("postgres_changes", { event: "*", schema: "public", table: "destinatarios_lembrete" }, () =>
+      refetch("destinatarios_lembrete"),
     )
     .on(
       "postgres_changes",

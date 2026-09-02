@@ -477,7 +477,7 @@ CREATE TABLE IF NOT EXISTS destinatarios_lembrete (
 
 CREATE TABLE IF NOT EXISTS envios_lembrete (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  tipo TEXT NOT NULL CHECK (tipo IN ('castanha', 'vespera', 'dia')),
+  tipo TEXT NOT NULL CHECK (tipo IN ('castanha', 'tres_dias', 'vespera', 'dia')),
   referencia_id UUID,
   destinatarios TEXT[] NOT NULL DEFAULT '{}',
   assunto TEXT NOT NULL DEFAULT '',
@@ -556,7 +556,17 @@ DO $pub$ BEGIN
 END $pub$;
 
 -- 9.6 Função de envio (schema privado `lembretes` — fora da Data API)
+-- Template v2 (2026-09-02): copy formal, card com dados do evento conforme o hub,
+-- assinatura do marketing em imagem (public/assinatura-marketing.png) e 3 fases:
+-- 'tres_dias' (hoje+3), 'vespera' (hoje+1) e 'dia' (hoje).
 CREATE SCHEMA IF NOT EXISTS lembretes;
+
+-- Escape mínimo de HTML para dados cadastrados
+CREATE OR REPLACE FUNCTION lembretes.esc(s text) RETURNS text
+LANGUAGE sql IMMUTABLE AS $e$
+  SELECT replace(replace(COALESCE(s, ''), '&', '&amp;'), '<', '&lt;');
+$e$;
+REVOKE EXECUTE ON FUNCTION lembretes.esc(text) FROM PUBLIC, anon, authenticated;
 
 CREATE OR REPLACE FUNCTION lembretes.enviar_lembretes_eventos()
 RETURNS void
@@ -568,10 +578,17 @@ DECLARE
   v_hoje date := (now() AT TIME ZONE 'America/Sao_Paulo')::date;
   v_api_key text;
   v_destinatarios text[];
-  v_assunto text := 'Lembrete — Eventos nos próximos dias';
+  v_assunto text;
   v_html text;
   v_ids uuid[] := '{}';
   v_fases text[] := '{}';
+  v_nomes text[] := '{}';
+  v_datas text[] := '{}';
+  v_blocos text := '';
+  v_linhas text;
+  v_frase text;
+  v_data text;
+  v_valor text;
   v_ev record;
 BEGIN
   -- Chave da API no Vault (a mais recente com esse nome)
@@ -597,46 +614,108 @@ BEGIN
     RETURN;
   END IF;
 
-  -- Corpo do e-mail (template placeholder — layout definitivo virá depois)
-  v_html := '<div style="font-family: Arial, sans-serif; max-width: 560px; margin: 0 auto;">'
-    || '<h2 style="color: #0a2540;">Eventos nos próximos dias</h2>'
-    || '<p>Olá! Estamos nos aproximando dos seguintes eventos do calendário LEMA:</p><ul>';
-
-  -- Eventos que começam hoje ('dia') ou amanhã ('vespera'), ainda não notificados
+  -- Eventos nas 3 janelas, ainda não notificados na fase correspondente
   -- (datas são TEXT yyyy-mm-dd; o regex protege o cast de linhas vazias/inválidas)
   FOR v_ev IN
-    SELECT ev.id, ev.nome, ev.cidade, ev.estado, ev.data_evento,
-           CASE WHEN ev.data_evento = v_hoje THEN 'dia' ELSE 'vespera' END AS fase
+    SELECT ev.id, ev.nome, ev.cidade, ev.estado, ev.local, ev.data_fim,
+           ev.participantes, ev.materiais, ev.data_evento,
+           CASE ev.data_evento
+             WHEN v_hoje THEN 'dia'
+             WHEN v_hoje + 1 THEN 'vespera'
+             ELSE 'tres_dias'
+           END AS fase
     FROM (
-      SELECT e.id, e.nome, e.cidade, e.estado, e.data_inicio::date AS data_evento
+      SELECT e.id, e.nome, e.cidade, e.estado, e.local, e.data_fim,
+             e.participantes, e.materiais, e.data_inicio::date AS data_evento
       FROM eventos e
       WHERE e.data_inicio ~ '^\d{4}-\d{2}-\d{2}$'
     ) ev
-    WHERE ev.data_evento IN (v_hoje, v_hoje + 1)
+    WHERE ev.data_evento IN (v_hoje, v_hoje + 1, v_hoje + 3)
       AND NOT EXISTS (
         SELECT 1 FROM envios_lembrete el
         WHERE el.referencia_id = ev.id
-          AND el.tipo = (CASE WHEN ev.data_evento = v_hoje THEN 'dia' ELSE 'vespera' END)
+          AND el.tipo = (CASE ev.data_evento
+                           WHEN v_hoje THEN 'dia'
+                           WHEN v_hoje + 1 THEN 'vespera'
+                           ELSE 'tres_dias'
+                         END)
           AND el.status = 'enviado'
       )
     ORDER BY ev.data_evento
   LOOP
-    v_html := v_html || format(
-      '<li><strong>%s</strong> — %s/%s · %s%s</li>',
-      v_ev.nome, v_ev.cidade, v_ev.estado,
-      to_char(v_ev.data_evento, 'DD/MM/YYYY'),
-      CASE WHEN v_ev.fase = 'dia' THEN ' (começa hoje)' ELSE ' (começa amanhã)' END
-    );
+    v_frase := CASE v_ev.fase
+      WHEN 'tres_dias' THEN 'Faltam 3 dias para o evento <strong>' || lembretes.esc(v_ev.nome) || '</strong>.'
+      WHEN 'vespera' THEN 'Falta 1 dia — o evento <strong>' || lembretes.esc(v_ev.nome) || '</strong> é amanhã.'
+      ELSE 'O evento <strong>' || lembretes.esc(v_ev.nome) || '</strong> é hoje.'
+    END;
+
+    v_data := to_char(v_ev.data_evento, 'DD/MM/YYYY');
+    IF v_ev.data_fim ~ '^\d{4}-\d{2}-\d{2}$' AND v_ev.data_fim::date > v_ev.data_evento THEN
+      v_data := v_data || ' a ' || to_char(v_ev.data_fim::date, 'DD/MM/YYYY');
+    END IF;
+
+    v_linhas := format(
+      '<tr><td style="padding:6px 16px;font-size:13px;color:#6b7280;white-space:nowrap;width:110px;vertical-align:top;">Data</td><td style="padding:6px 16px;font-size:13px;color:#251b47;vertical-align:top;">%s</td></tr>',
+      v_data);
+
+    v_valor := concat_ws('/', NULLIF(v_ev.cidade, ''), NULLIF(v_ev.estado, ''));
+    IF v_valor <> '' THEN
+      v_linhas := v_linhas || format(
+        '<tr><td style="padding:6px 16px;font-size:13px;color:#6b7280;white-space:nowrap;width:110px;vertical-align:top;">Cidade/UF</td><td style="padding:6px 16px;font-size:13px;color:#251b47;vertical-align:top;">%s</td></tr>',
+        lembretes.esc(v_valor));
+    END IF;
+
+    IF COALESCE(v_ev.local, '') <> '' THEN
+      v_linhas := v_linhas || format(
+        '<tr><td style="padding:6px 16px;font-size:13px;color:#6b7280;white-space:nowrap;width:110px;vertical-align:top;">Local</td><td style="padding:6px 16px;font-size:13px;color:#251b47;vertical-align:top;">%s</td></tr>',
+        lembretes.esc(v_ev.local));
+    END IF;
+
+    IF array_length(v_ev.participantes, 1) > 0 THEN
+      v_linhas := v_linhas || format(
+        '<tr><td style="padding:6px 16px;font-size:13px;color:#6b7280;white-space:nowrap;width:110px;vertical-align:top;">Participantes</td><td style="padding:6px 16px;font-size:13px;color:#251b47;vertical-align:top;">%s</td></tr>',
+        lembretes.esc(array_to_string(v_ev.participantes, ', ')));
+    END IF;
+
+    IF array_length(v_ev.materiais, 1) > 0 THEN
+      v_linhas := v_linhas || format(
+        '<tr><td style="padding:6px 16px;font-size:13px;color:#6b7280;white-space:nowrap;width:110px;vertical-align:top;">Materiais</td><td style="padding:6px 16px;font-size:13px;color:#251b47;vertical-align:top;">%s</td></tr>',
+        lembretes.esc(array_to_string(v_ev.materiais, ', ')));
+    END IF;
+
+    IF v_blocos <> '' THEN
+      v_blocos := v_blocos || '<hr style="border:none;border-top:1px solid #e5e7eb;margin:0 0 24px;" />';
+    END IF;
+
+    v_blocos := v_blocos
+      || '<p style="margin:0 0 16px;">' || v_frase || '</p>'
+      || '<table role="presentation" cellpadding="0" cellspacing="0" style="width:100%;background:#f6f7fa;border:1px solid #e5e7eb;border-radius:8px;margin:0 0 8px;">' || v_linhas || '</table>';
+
     v_ids := array_append(v_ids, v_ev.id);
     v_fases := array_append(v_fases, v_ev.fase);
+    v_nomes := array_append(v_nomes, COALESCE(v_ev.nome, ''));
+    v_datas := array_append(v_datas, to_char(v_ev.data_evento, 'DD/MM'));
   END LOOP;
 
   IF array_length(v_ids, 1) IS NULL THEN
     RETURN; -- nada a notificar agora
   END IF;
 
-  v_html := v_html || '</ul>'
-    || '<p style="color: #5a6b7d; font-size: 13px;">Este é um lembrete automático do LEMA Demand Hub.</p></div>';
+  IF array_length(v_ids, 1) = 1 THEN
+    v_assunto := '[INTERNO] Lembrete: ' || COALESCE(v_nomes[1], '') || ' — ' || v_datas[1];
+  ELSE
+    v_assunto := '[INTERNO] Lembrete: ' || array_length(v_ids, 1) || ' eventos nos próximos dias';
+  END IF;
+
+  v_html := '<div style="background-color:#eef0f4;padding:24px 12px;">'
+    || '<table role="presentation" cellpadding="0" cellspacing="0" style="width:100%;max-width:560px;margin:0 auto;background:#ffffff;border-radius:8px;">'
+    || '<tr><td style="padding:32px 40px;font-family:Arial,Helvetica,sans-serif;color:#251b47;font-size:14px;line-height:22px;">'
+    || 'Prezado(a),<br><br>'
+    || 'Esta é uma mensagem automática.<br><br>'
+    || v_blocos
+    || 'Atenciosamente,<br><br>'
+    || '<img src="https://mktlema-lemahub.holy-bush-967a.workers.dev/assinatura-marketing.png" width="400" alt="Assinatura — Marketing LEMA" style="display:block;width:100%;max-width:400px;height:auto;border:0;" />'
+    || '</td></tr></table></div>';
 
   -- Envio via Resend. pg_net é assíncrono: a requisição sai após o commit desta transação.
   -- REMETENTE: compliance.lemaef.com.br é domínio já verificado na conta Resend (entrega
@@ -687,3 +766,17 @@ DO $cronblock$ BEGIN
     );
   END IF;
 END $cronblock$;
+
+-- 9.8 Upgrade da constraint de tipo (instalações antigas: incluir 'tres_dias')
+DO $ck$ BEGIN
+  IF EXISTS (
+    SELECT 1 FROM pg_constraint
+    WHERE conrelid = 'public.envios_lembrete'::regclass
+      AND conname = 'envios_lembrete_tipo_check'
+      AND pg_get_constraintdef(oid) NOT ILIKE '%tres_dias%'
+  ) THEN
+    ALTER TABLE public.envios_lembrete DROP CONSTRAINT envios_lembrete_tipo_check;
+    ALTER TABLE public.envios_lembrete ADD CONSTRAINT envios_lembrete_tipo_check
+      CHECK (tipo IN ('castanha', 'tres_dias', 'vespera', 'dia'));
+  END IF;
+END $ck$;

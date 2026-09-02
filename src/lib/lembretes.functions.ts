@@ -4,7 +4,7 @@ import { Resend } from "resend";
 import type { CompraCastanha } from "./types";
 
 // Helpers duplicados de admin.functions.ts (autocontido de propósito:
-// não mexer no arquivo testado em produção). Ver docs/LEMBRETES-EMAIL-PLANO.md §6.
+// não mexer no arquivo testado em produção). Ver docs/LEMBRETES-EMAIL-PLANO.md.
 
 function getEnv(name: string): string | undefined {
   const viteVal = import.meta.env[name] as string | undefined;
@@ -53,6 +53,9 @@ async function requireEditor(accessToken?: string) {
 const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
 const COOLDOWN_MS = 12 * 60 * 60 * 1000;
 
+const ASSINATURA_URL =
+  "https://mktlema-lemahub.holy-bush-967a.workers.dev/assinatura-marketing.png";
+
 const esc = (s: string | null | undefined) =>
   String(s ?? "")
     .replace(/&/g, "&amp;")
@@ -60,30 +63,22 @@ const esc = (s: string | null | undefined) =>
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;");
 
-const br = (d: string | null | undefined) => (d ? d.split("-").reverse().join("/") : "—");
-
-// Template placeholder — layout definitivo virá na fase de design de e-mails.
 function templateLembreteCastanha(pedido: CompraCastanha): string {
-  const linhas: [string, string][] = [
-    ["Fornecedor", esc(pedido.fornecedor)],
-    ["Finalidade", esc(pedido.finalidade)],
-    ["Solicitante", esc(pedido.solicitante)],
-    ["Prazo de entrega", br(pedido.prazo_entrega)],
-    ["Valor", pedido.valor.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })],
-    ["Nota fiscal emitida", pedido.nota_fiscal_emitida ? "Sim" : "Não"],
-    ["Nota enviada ao financeiro", pedido.nota_enviada_financeiro ? "Sim" : "Não"],
-  ];
-  const obs = pedido.observacao?.trim()
-    ? `<p><strong>Observação:</strong> ${esc(pedido.observacao)}</p>`
+  const linhaPedido = pedido.finalidade?.trim()
+    ? `<p style="margin:0 0 24px;"><strong>Pedido:</strong> ${esc(pedido.finalidade)}</p>`
     : "";
-  return `<div style="font-family: Arial, sans-serif; max-width: 560px; margin: 0 auto; color: #1f2937;">
-<h2 style="color: #0a2540;">Lembrete — Pedido de castanhas</h2>
-<ul style="padding-left: 18px;">${linhas
-    .map(([k, v]) => `<li><strong>${k}:</strong> ${v || "—"}</li>`)
-    .join("")}</ul>
-${obs}
-<p style="color: #5a6b7d; font-size: 13px;">Este é um lembrete do LEMA Demand Hub.</p>
-</div>`;
+  return [
+    `<div style="background-color:#eef0f4;padding:24px 12px;">`,
+    `<table role="presentation" cellpadding="0" cellspacing="0" style="width:100%;max-width:560px;margin:0 auto;background:#ffffff;border-radius:8px;">`,
+    `<tr><td style="padding:32px 40px;font-family:Arial,Helvetica,sans-serif;color:#251b47;font-size:14px;line-height:22px;">`,
+    `Prezado(a),<br><br>`,
+    `Esta é uma mensagem automática.<br><br>`,
+    `Seu pedido de castanha já está adesivado e pronto para retirada.<br><br>`,
+    linhaPedido,
+    `Atenciosamente,<br><br>`,
+    `<img src="${ASSINATURA_URL}" width="400" alt="Assinatura — Marketing LEMA" style="display:block;width:100%;max-width:400px;height:auto;border:0;" />`,
+    `</td></tr></table></div>`,
+  ].join("");
 }
 
 export const enviarLembreteCastanha = createServerFn({ method: "POST" })
@@ -140,9 +135,7 @@ export const enviarLembreteCastanha = createServerFn({ method: "POST" })
       throw new Error("RESEND_API_KEY não configurada no servidor (wrangler secret).");
     }
 
-    const assunto = `Lembrete — Pedido de castanhas: ${
-      pedidoCastanha.fornecedor || "sem fornecedor"
-    }`;
+    const assunto = "[INTERNO] Seu pedido de castanhas está pronto para retirada";
     const resend = new Resend(apiKey);
     const { data: enviado, error } = await resend.emails.send({
       // compliance.lemaef.com.br: domínio já verificado na conta Resend (entrega em

@@ -9,7 +9,13 @@ import { EventoCard } from "@/components/evento-card";
 import { ProximityDot } from "@/components/proximity-dot";
 import { calcularAlertas, diasAte, diasAteAniversario } from "@/lib/alerts";
 import { useDb } from "@/lib/store";
-import { LABELS, type Colaborador, type Evento } from "@/lib/types";
+import {
+  LABELS,
+  isConcluidoCastanha,
+  isConcluidoFinanceiro,
+  type Colaborador,
+  type Evento,
+} from "@/lib/types";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -46,10 +52,8 @@ function Home() {
     const d = diasAteAniversario(c.data_aniversario);
     return d !== null && d <= 3;
   }).length;
-  const castanhasPendentes = db.compras_castanhas.filter(
-    (k) => !k.nota_fiscal_emitida || !k.nota_enviada_financeiro,
-  ).length;
-  const financeiroPendente = db.compras_financeiro.filter((f) => !f.nota_enviada_financeiro).length;
+  const castanhasPendentes = db.compras_castanhas.filter((k) => !isConcluidoCastanha(k)).length;
+  const financeiroPendente = db.compras_financeiro.filter((f) => !isConcluidoFinanceiro(f)).length;
   const eventosProximos = db.eventos.filter((e) => {
     const d = diasAte(e.data_inicio);
     return d !== null && d >= 0 && d <= 3;

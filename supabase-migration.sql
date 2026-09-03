@@ -780,3 +780,13 @@ DO $ck$ BEGIN
       CHECK (tipo IN ('castanha', 'tres_dias', 'vespera', 'dia'));
   END IF;
 END $ck$;
+
+-- ============================================================
+-- 10. PAGAMENTO SOLICITADO VIA BITRIX (castanhas + financeiro)
+-- ============================================================
+ALTER TABLE compras_castanhas ADD COLUMN IF NOT EXISTS pagamento_solicitado_bitrix BOOLEAN DEFAULT false;
+ALTER TABLE compras_castanhas ADD COLUMN IF NOT EXISTS data_abertura_pagamento TEXT DEFAULT '';
+ALTER TABLE compras_castanhas ADD COLUMN IF NOT EXISTS link_bitrix TEXT DEFAULT '';
+ALTER TABLE compras_financeiro ADD COLUMN IF NOT EXISTS pagamento_solicitado_bitrix BOOLEAN DEFAULT false;
+ALTER TABLE compras_financeiro ADD COLUMN IF NOT EXISTS data_abertura_pagamento TEXT DEFAULT '';
+ALTER TABLE compras_financeiro ADD COLUMN IF NOT EXISTS link_bitrix TEXT DEFAULT '';

@@ -13,6 +13,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ModuleHeader, RowActions } from "@/components/module-page";
 import { EntityForm, type FieldSpec, type FormValues } from "@/components/entity-form";
 import { HistoricoDialog } from "@/components/historico-dialog";
@@ -28,7 +29,7 @@ import {
   type SortConfig,
   type SortOption,
 } from "@/components/sort-controls";
-import type { CompraCastanha, Evento } from "@/lib/types";
+import { isConcluidoCastanha, type CompraCastanha, type Evento } from "@/lib/types";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { MobileCardList } from "@/components/mobile-card-list";
 import { LembretePopover } from "@/components/lembrete-popover";
@@ -58,6 +59,19 @@ const BASE_FIELDS: FieldSpec[] = [
   { name: "anexo_url", label: "Anexo (PDF/JPG/PNG)", type: "file" },
   { name: "nota_fiscal_emitida", label: "Nota fiscal emitida", type: "boolean" },
   { name: "nota_enviada_financeiro", label: "Nota enviada ao financeiro", type: "boolean" },
+  { name: "pagamento_solicitado_bitrix", label: "Pagamento aberto", type: "boolean" },
+  {
+    name: "data_abertura_pagamento",
+    label: "Data abertura pagamento",
+    type: "date",
+    visibleIf: { field: "pagamento_solicitado_bitrix", equals: true },
+  },
+  {
+    name: "link_bitrix",
+    label: "Link Bitrix",
+    type: "text",
+    visibleIf: { field: "pagamento_solicitado_bitrix", equals: true },
+  },
 ];
 
 const VAZIO_CASTANHA = {
@@ -66,6 +80,9 @@ const VAZIO_CASTANHA = {
   numero_nf: "",
   vinculado_a: null as string | null,
   anexo_url: "",
+  pagamento_solicitado_bitrix: false,
+  data_abertura_pagamento: "",
+  link_bitrix: "",
 };
 
 const brl = (v: number) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
@@ -157,18 +174,30 @@ function CastanhasPage() {
     { value: "prazo_entrega", label: "Prazo", type: "text" },
   ];
   const [sort, setSort] = useState<SortConfig | null>(null);
-  const rows = useMemo(() => {
+  const [aba, setAba] = useState<"pendentes" | "concluidos">("pendentes");
+  const pendentesCount = useMemo(
+    () => db.compras_castanhas.filter((k) => !isConcluidoCastanha(k)).length,
+    [db.compras_castanhas],
+  );
+  const concluidosCount = db.compras_castanhas.length - pendentesCount;
+  const rowsBase = useMemo(() => {
     const q = busca.toLowerCase();
-    const filtered = db.compras_castanhas.filter((k) =>
+    return db.compras_castanhas.filter((k) =>
       `${k.fornecedor} ${k.finalidade} ${k.solicitante}`.toLowerCase().includes(q),
     );
+  }, [db.compras_castanhas, busca]);
+  const rows = useMemo(() => {
+    const filtrado =
+      aba === "pendentes"
+        ? rowsBase.filter((k) => !isConcluidoCastanha(k))
+        : rowsBase.filter((k) => isConcluidoCastanha(k));
     return applySort(
-      filtered,
+      filtrado,
       sort,
       SORT_OPTS,
       (k, f) => (k as unknown as Record<string, string | number | null>)[f],
     );
-  }, [db.compras_castanhas, busca, sort]);
+  }, [rowsBase, aba, sort]);
 
   return (
     <>
@@ -181,7 +210,7 @@ function CastanhasPage() {
           setEditando(null);
           setOpen(true);
         }}
-        onExportar={() => exportCsv("compras-castanhas", rows)}
+        onExportar={() => exportCsv("compras-castanhas", db.compras_castanhas)}
         templateHeaders={BASE_FIELDS.map((f) => f.name)}
         onImportar={(linhas) => {
           let total = 0;
@@ -202,6 +231,11 @@ function CastanhasPage() {
               nota_enviada_financeiro: /^(true|sim|1)$/i.test(
                 linha["nota_enviada_financeiro"] ?? "",
               ),
+              pagamento_solicitado_bitrix: /^(true|sim|1)$/i.test(
+                linha["pagamento_solicitado_bitrix"] ?? "",
+              ),
+              data_abertura_pagamento: linha["data_abertura_pagamento"] ?? "",
+              link_bitrix: linha["link_bitrix"] ?? "",
             });
             total += 1;
           });
@@ -209,6 +243,16 @@ function CastanhasPage() {
         }}
         extra={null}
       />
+      <Tabs
+        value={aba}
+        onValueChange={(v) => setAba(v as typeof aba)}
+        className="animate-rise mb-4"
+      >
+        <TabsList>
+          <TabsTrigger value="pendentes">Pendentes ({pendentesCount})</TabsTrigger>
+          <TabsTrigger value="concluidos">Concluídos ({concluidosCount})</TabsTrigger>
+        </TabsList>
+      </Tabs>
 
       <div className="animate-rise overflow-hidden rounded-xl border border-border bg-card">
         <Table>
@@ -237,7 +281,8 @@ function CastanhasPage() {
           </TableHeader>
           <TableBody>
             {rows.map((k) => {
-              const pendente = !k.nota_fiscal_emitida || !k.nota_enviada_financeiro;
+              const concluido = isConcluidoCastanha(k);
+              const pendente = !concluido;
               const sev = pendente ? "pendente" : "ok";
               const pares = paresDe(k);
               const eventoVinculado = k.evento_id
@@ -295,7 +340,7 @@ function CastanhasPage() {
                     </span>
                   </TableCell>
                   <TableCell>
-                    <div className="flex items-center gap-4">
+                    <div className="flex flex-wrap items-center gap-3">
                       <div className="flex items-center gap-2">
                         <Switch
                           id={`nf-${k.id}`}
@@ -322,6 +367,36 @@ function CastanhasPage() {
                           Fin
                         </Label>
                       </div>
+                      <div className="flex items-center gap-2">
+                        <Switch
+                          id={`bitrix-${k.id}`}
+                          checked={!!k.pagamento_solicitado_bitrix}
+                          onCheckedChange={(c) => {
+                            const patch: Partial<CompraCastanha> = {
+                              pagamento_solicitado_bitrix: c,
+                            };
+                            if (!c) {
+                              (patch as Record<string, unknown>)["data_abertura_pagamento"] = "";
+                              (patch as Record<string, unknown>)["link_bitrix"] = "";
+                            }
+                            updateRow("compras_castanhas", k.id, patch);
+                            toast.success(c ? "Pagamento aberto." : "Pagamento pendente.");
+                          }}
+                        />
+                        <Label htmlFor={`bitrix-${k.id}`} className="text-xs">
+                          Pagamento aberto
+                        </Label>
+                      </div>
+                      {k.pagamento_solicitado_bitrix && k.link_bitrix ? (
+                        <a
+                          href={k.link_bitrix}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-xs text-accent underline hover:text-accent/80"
+                        >
+                          Bitrix
+                        </a>
+                      ) : null}
                       <AnexoViewer url={k.anexo_url} />
                       <Badge variant={pendente ? "destructive" : "secondary"}>
                         {pendente ? "pendente" : "ok"}
@@ -359,7 +434,11 @@ function CastanhasPage() {
                   colSpan={podeLembrete ? 9 : 8}
                   className="py-10 text-center text-muted-foreground"
                 >
-                  Nenhuma compra encontrada.
+                  {aba === "pendentes" && concluidosCount > 0
+                    ? `Nenhum pedido pendente — ${concluidosCount} concluído(s) na aba Concluídos.`
+                    : aba === "concluidos" && pendentesCount > 0
+                      ? `Nenhum pedido concluído — ${pendentesCount} pendente(s) na aba Pendentes.`
+                      : "Nenhuma compra encontrada."}
                 </TableCell>
               </TableRow>
             )}
@@ -378,11 +457,13 @@ function CastanhasPage() {
           const eventoId = String(values["evento_id"] ?? "") || null;
           const ev = db.eventos.find((x) => x.id === eventoId);
           const desvinculando = !!editando?.evento_id && !eventoId;
+          const pagamentoAberto = Boolean(values["pagamento_solicitado_bitrix"]);
           const dados = {
             ...values,
             vinculado_a: String(values["vinculado_a"] ?? "") || null,
             finalidade: ev ? ev.nome : String(values["finalidade"] ?? ""),
             ...(eventoId || desvinculando ? { evento_id: eventoId } : {}),
+            ...(!pagamentoAberto ? { data_abertura_pagamento: "", link_bitrix: "" } : {}),
           } as Partial<CompraCastanha>;
           if (editando) {
             const r = await updateRow("compras_castanhas", editando.id, dados);

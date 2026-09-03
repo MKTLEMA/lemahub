@@ -13,6 +13,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ModuleHeader, RowActions } from "@/components/module-page";
 import { EntityForm, type FieldSpec, type FormValues } from "@/components/entity-form";
 import { HistoricoDialog } from "@/components/historico-dialog";
@@ -25,7 +26,7 @@ import {
   type SortConfig,
   type SortOption,
 } from "@/components/sort-controls";
-import type { CompraFinanceiro } from "@/lib/types";
+import { isConcluidoFinanceiro, type CompraFinanceiro } from "@/lib/types";
 
 export const Route = createFileRoute("/financeiro")({
   head: () => ({
@@ -52,6 +53,19 @@ const FIELDS: FieldSpec[] = [
   { name: "comprovante_url", label: "Comprovante (PDF/JPG/PNG)", type: "file" },
   { name: "nota_fiscal_emitida", label: "Nota fiscal emitida pelo fornecedor", type: "boolean" },
   { name: "nota_enviada_financeiro", label: "Nota enviada ao financeiro", type: "boolean" },
+  { name: "pagamento_solicitado_bitrix", label: "Pagamento aberto", type: "boolean" },
+  {
+    name: "data_abertura_pagamento",
+    label: "Data abertura pagamento",
+    type: "date",
+    visibleIf: { field: "pagamento_solicitado_bitrix", equals: true },
+  },
+  {
+    name: "link_bitrix",
+    label: "Link Bitrix",
+    type: "text",
+    visibleIf: { field: "pagamento_solicitado_bitrix", equals: true },
+  },
 ];
 
 const brl = (v: number) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
@@ -72,18 +86,30 @@ function FinanceiroPage() {
     { value: "data_orcamento", label: "Orçamento", type: "date" },
   ];
   const [sort, setSort] = useState<SortConfig | null>(null);
-  const rows = useMemo(() => {
+  const [aba, setAba] = useState<"pendentes" | "concluidos">("pendentes");
+  const pendentesCount = useMemo(
+    () => db.compras_financeiro.filter((f) => !isConcluidoFinanceiro(f)).length,
+    [db.compras_financeiro],
+  );
+  const concluidosCount = db.compras_financeiro.length - pendentesCount;
+  const rowsBase = useMemo(() => {
     const q = busca.toLowerCase();
-    const filtered = db.compras_financeiro.filter((f) =>
+    return db.compras_financeiro.filter((f) =>
       `${f.finalidade} ${f.fornecedor} ${f.solicitante}`.toLowerCase().includes(q),
     );
+  }, [db.compras_financeiro, busca]);
+  const rows = useMemo(() => {
+    const filtrado =
+      aba === "pendentes"
+        ? rowsBase.filter((f) => !isConcluidoFinanceiro(f))
+        : rowsBase.filter((f) => isConcluidoFinanceiro(f));
     return applySort(
-      filtered,
+      filtrado,
       sort,
       SORT_OPTS,
       (f, field) => (f as unknown as Record<string, string | number | null>)[field],
     );
-  }, [db.compras_financeiro, busca, sort]);
+  }, [rowsBase, aba, sort]);
 
   return (
     <>
@@ -96,9 +122,19 @@ function FinanceiroPage() {
           setEditando(null);
           setOpen(true);
         }}
-        onExportar={() => exportCsv("compras-financeiro", rows)}
+        onExportar={() => exportCsv("compras-financeiro", db.compras_financeiro)}
         extra={null}
       />
+      <Tabs
+        value={aba}
+        onValueChange={(v) => setAba(v as typeof aba)}
+        className="animate-rise mb-4"
+      >
+        <TabsList>
+          <TabsTrigger value="pendentes">Pendentes ({pendentesCount})</TabsTrigger>
+          <TabsTrigger value="concluidos">Concluídos ({concluidosCount})</TabsTrigger>
+        </TabsList>
+      </Tabs>
 
       <div className="animate-rise overflow-hidden rounded-xl border border-border bg-card">
         <Table>
@@ -135,9 +171,7 @@ function FinanceiroPage() {
               <TableRow key={f.id} className="animate-rise">
                 <TableCell className="font-medium">
                   <ProximityDot
-                    severidade={
-                      f.nota_enviada_financeiro && f.nota_fiscal_emitida ? "ok" : "pendente"
-                    }
+                    severidade={isConcluidoFinanceiro(f) ? "ok" : "pendente"}
                     label={f.finalidade}
                   />
                 </TableCell>
@@ -158,7 +192,7 @@ function FinanceiroPage() {
                   )}
                 </TableCell>
                 <TableCell>
-                  <div className="flex items-center gap-4">
+                  <div className="flex flex-wrap items-center gap-3">
                     <div className="flex items-center gap-2">
                       <Switch
                         id={`fnf-${f.id}`}
@@ -185,14 +219,38 @@ function FinanceiroPage() {
                         Fin
                       </Label>
                     </div>
-                    <Badge
-                      variant={
-                        f.nota_fiscal_emitida && f.nota_enviada_financeiro
-                          ? "secondary"
-                          : "destructive"
-                      }
-                    >
-                      {f.nota_fiscal_emitida && f.nota_enviada_financeiro ? "ok" : "pendente"}
+                    <div className="flex items-center gap-2">
+                      <Switch
+                        id={`fbitrix-${f.id}`}
+                        checked={!!f.pagamento_solicitado_bitrix}
+                        onCheckedChange={(c) => {
+                          const patch: Partial<CompraFinanceiro> = {
+                            pagamento_solicitado_bitrix: c,
+                          };
+                          if (!c) {
+                            (patch as Record<string, unknown>)["data_abertura_pagamento"] = "";
+                            (patch as Record<string, unknown>)["link_bitrix"] = "";
+                          }
+                          updateRow("compras_financeiro", f.id, patch);
+                          toast.success(c ? "Pagamento aberto." : "Pagamento pendente.");
+                        }}
+                      />
+                      <Label htmlFor={`fbitrix-${f.id}`} className="text-xs">
+                        Pagamento aberto
+                      </Label>
+                    </div>
+                    {f.pagamento_solicitado_bitrix && f.link_bitrix ? (
+                      <a
+                        href={f.link_bitrix}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-xs text-accent underline hover:text-accent/80"
+                      >
+                        Bitrix
+                      </a>
+                    ) : null}
+                    <Badge variant={isConcluidoFinanceiro(f) ? "secondary" : "destructive"}>
+                      {isConcluidoFinanceiro(f) ? "ok" : "pendente"}
                     </Badge>
                   </div>
                 </TableCell>
@@ -218,7 +276,11 @@ function FinanceiroPage() {
             {rows.length === 0 && (
               <TableRow>
                 <TableCell colSpan={9} className="py-10 text-center text-muted-foreground">
-                  Nenhum registro encontrado.
+                  {aba === "pendentes" && concluidosCount > 0
+                    ? `Nenhum registro pendente — ${concluidosCount} concluído(s) na aba Concluídos.`
+                    : aba === "concluidos" && pendentesCount > 0
+                      ? `Nenhum registro concluído — ${pendentesCount} pendente(s) na aba Pendentes.`
+                      : "Nenhum registro encontrado."}
                 </TableCell>
               </TableRow>
             )}
@@ -234,19 +296,20 @@ function FinanceiroPage() {
         fields={FIELDS}
         initial={editando ? (editando as unknown as FormValues) : undefined}
         onSubmit={async (values) => {
+          const pagamentoAberto = Boolean(values["pagamento_solicitado_bitrix"]);
+          const dados = {
+            ...values,
+            ...(!pagamentoAberto ? { data_abertura_pagamento: "", link_bitrix: "" } : {}),
+          } as Partial<CompraFinanceiro>;
           if (editando) {
-            const r = await updateRow(
-              "compras_financeiro",
-              editando.id,
-              values as Partial<CompraFinanceiro>,
-            );
+            const r = await updateRow("compras_financeiro", editando.id, dados);
             if (r.ok) {
               toast.success("Registro atualizado.");
             } else {
               toast.error(r.erro);
             }
           } else {
-            const r = await insertRow("compras_financeiro", values as never);
+            const r = await insertRow("compras_financeiro", dados as never);
             if (r.ok) {
               toast.success("Compra registrada.");
             } else {

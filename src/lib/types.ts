@@ -39,6 +39,9 @@ export type CompraCastanha = {
   anexo_url: string;
   nota_fiscal_emitida: boolean;
   nota_enviada_financeiro: boolean;
+  pagamento_solicitado_bitrix: boolean;
+  data_abertura_pagamento: string;
+  link_bitrix: string;
   created_at: string;
   updated_at: string;
 };
@@ -54,9 +57,18 @@ export type CompraFinanceiro = {
   finalidade: string;
   nota_fiscal_emitida: boolean;
   nota_enviada_financeiro: boolean;
+  pagamento_solicitado_bitrix: boolean;
+  data_abertura_pagamento: string;
+  link_bitrix: string;
   created_at: string;
   updated_at: string;
 };
+
+export const isConcluidoCastanha = (k: CompraCastanha): boolean =>
+  k.nota_fiscal_emitida && k.nota_enviada_financeiro && k.pagamento_solicitado_bitrix;
+
+export const isConcluidoFinanceiro = (f: CompraFinanceiro): boolean =>
+  f.nota_fiscal_emitida && f.nota_enviada_financeiro && f.pagamento_solicitado_bitrix;
 
 export type Evento = {
   id: string;

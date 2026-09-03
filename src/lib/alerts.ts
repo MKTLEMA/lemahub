@@ -111,6 +111,17 @@ export function calcularAlertas(db: DBShape): AlertaItem[] {
         ordem: -99,
       });
     }
+    if (itensGrupo.some((k) => !k.pagamento_solicitado_bitrix)) {
+      itens.push({
+        id: `bitrix-${chave}`,
+        tabela: "compras_castanhas",
+        registro_id: primeiro.id,
+        titulo: "Abrir pagamento (Bitrix)",
+        descricao: rotulo,
+        severidade: "pendente",
+        ordem: -96,
+      });
+    }
   });
 
   db.compras_financeiro.forEach((f) => {
@@ -134,6 +145,17 @@ export function calcularAlertas(db: DBShape): AlertaItem[] {
         descricao: `${f.finalidade} · ${f.fornecedor}`,
         severidade: "pendente",
         ordem: -97,
+      });
+    }
+    if (!f.pagamento_solicitado_bitrix) {
+      itens.push({
+        id: `fbitrix-${f.id}`,
+        tabela: "compras_financeiro",
+        registro_id: f.id,
+        titulo: "Abrir pagamento (Bitrix)",
+        descricao: `${f.finalidade} · ${f.fornecedor}`,
+        severidade: "pendente",
+        ordem: -96,
       });
     }
   });

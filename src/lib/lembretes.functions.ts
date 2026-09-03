@@ -68,14 +68,14 @@ function templateLembreteCastanha(pedido: CompraCastanha): string {
     : "";
   return [
     `<div style="background-color:#eef0f4;padding:24px 12px;">`,
-    `<table role="presentation" cellpadding="0" cellspacing="0" style="width:100%;max-width:560px;margin:0 auto;background:#ffffff;border-radius:8px;">`,
+    `<table role="presentation" cellpadding="0" cellspacing="0" style="width:100%;max-width:640px;margin:0 auto;background:#ffffff;border-radius:8px;">`,
     `<tr><td style="padding:32px 40px;font-family:Arial,Helvetica,sans-serif;color:#251b47;font-size:14px;line-height:22px;">`,
     `Prezado(a),<br><br>`,
     `Esta é uma mensagem automática.<br><br>`,
     `Seu pedido de castanha já está adesivado e pronto para retirada.<br><br>`,
     linhaPedido,
     `Atenciosamente,<br><br>`,
-    `<img src="${ASSINATURA_URL}" width="400" alt="Assinatura — Marketing LEMA" style="display:block;width:100%;max-width:400px;height:auto;border:0;" />`,
+    `<img src="${ASSINATURA_URL}" width="500" alt="Assinatura — Marketing LEMA" style="display:block;width:100%;max-width:500px;height:auto;border:0;" />`,
     `</td></tr></table></div>`,
   ].join("");
 }
